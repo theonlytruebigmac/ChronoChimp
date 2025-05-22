@@ -1,4 +1,3 @@
-
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { cookies } from 'next/headers';
@@ -6,23 +5,25 @@ import { jwtVerify } from 'jose';
 
 // Ensure JWT_SECRET is used from environment variables
 const JWT_SECRET_STRING = process.env.JWT_SECRET;
-if (!JWT_SECRET_STRING) {
-  throw new Error("JWT_SECRET is not defined in environment variables. /api/me/api_keys/[apiKeyId] cannot function securely.");
-}
-const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_STRING);
 
 interface Params {
   params: { apiKeyId: string };
 }
 
 async function getUserIdFromToken(): Promise<string | null> {
-  const cookieStore = cookies();
+  if (!JWT_SECRET_STRING) {
+    console.error("JWT_SECRET is not defined in environment variables. /api/me/api_keys/[apiKeyId] cannot function securely.");
+    return null;
+  }
+
+  const cookieStore = await cookies();
   const token = cookieStore.get('session_token')?.value;
 
   if (!token) {
     return null;
   }
   try {
+    const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_STRING);
     const { payload } = await jwtVerify(token, JWT_SECRET);
     return payload.userId as string;
   } catch (error) {
@@ -33,6 +34,11 @@ async function getUserIdFromToken(): Promise<string | null> {
 
 export async function DELETE(request: Request, { params }: Params) {
   const userId = await getUserIdFromToken();
+  
+  if (!JWT_SECRET_STRING) {
+    return NextResponse.json({ error: 'Server configuration error.' }, { status: 500 });
+  }
+  
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized. No session found or token invalid.' }, { status: 401 });
   }

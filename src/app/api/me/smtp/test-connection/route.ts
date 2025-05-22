@@ -19,7 +19,7 @@ async function getJwtSecretKey(): Promise<Uint8Array> {
 }
 
 async function getUserIdFromToken(): Promise<string | null> {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const token = cookieStore.get('session_token')?.value;
 
   if (!token) {

@@ -1,4 +1,3 @@
-
 "use client"; // Required for QueryClientProvider and usePathname
 
 import type { Metadata } from 'next';
@@ -42,8 +41,8 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <title>ChronoTask</title>
-        <meta name="description" content="Modern Task Management Application" />
+        <title>ChronoChimp</title>
+        <meta name="description" content="Modern Time Tracking and Productivity Application" />
       </head>
       <body className={`${inter.variable} antialiased`}>
         <TanstackQueryClientProvider client={queryClient}>

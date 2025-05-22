@@ -6,16 +6,12 @@ import { jwtVerify } from 'jose';
 
 // Ensure JWT_SECRET is used from environment variables
 const JWT_SECRET_STRING = process.env.JWT_SECRET;
-let JWT_SECRET: Uint8Array;
 
 async function getJwtSecretKey(): Promise<Uint8Array> {
   if (!JWT_SECRET_STRING) {
-    throw new Error("JWT_SECRET is not defined in environment variables. /api/me/2fa/setup-initiate cannot function securely.");
+    throw new Error("JWT_SECRET_NOT_CONFIGURED");
   }
-  if (!JWT_SECRET) {
-    JWT_SECRET = new TextEncoder().encode(JWT_SECRET_STRING);
-  }
-  return JWT_SECRET;
+  return new TextEncoder().encode(JWT_SECRET_STRING);
 }
 
 async function getAuthenticatedUser(): Promise<{ id: string; email: string } | null> {
@@ -40,7 +36,7 @@ export async function POST(request: Request) {
   try {
     authenticatedUser = await getAuthenticatedUser();
   } catch (error: any) {
-    if (error.message?.includes("JWT_SECRET is not defined")) {
+    if (error.message?.includes("JWT_SECRET_NOT_CONFIGURED")) {
       return NextResponse.json({ error: 'Server configuration error: JWT_SECRET is not set.' }, { status: 500 });
     }
     console.error('Error getting authenticated user:', error);
@@ -56,7 +52,7 @@ export async function POST(request: Request) {
   try {
     // We use the authenticated user's email from the JWT, no need to query DB for it here.
     const secret = authenticator.generateSecret(); // Generates a new Base32 secret
-    const appName = "ChronoTask"; // Replace with your application name
+    const appName = "ChronoChimp"; // Updated app name
     const otpAuthUrl = authenticator.keyuri(userEmail, appName, secret);
 
     // IMPORTANT: In a real app, you would temporarily store this secret (e.g., in cache or DB associated with user)

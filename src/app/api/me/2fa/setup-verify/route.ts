@@ -7,16 +7,12 @@ import { jwtVerify } from 'jose';
 
 // Ensure JWT_SECRET is used from environment variables
 const JWT_SECRET_STRING = process.env.JWT_SECRET;
-let JWT_SECRET: Uint8Array;
 
 async function getJwtSecretKey(): Promise<Uint8Array> {
   if (!JWT_SECRET_STRING) {
     throw new Error("JWT_SECRET is not defined in environment variables. /api/me/2fa/setup-verify cannot function securely.");
   }
-  if (!JWT_SECRET) {
-    JWT_SECRET = new TextEncoder().encode(JWT_SECRET_STRING);
-  }
-  return JWT_SECRET;
+  return new TextEncoder().encode(JWT_SECRET_STRING);
 }
 
 const VerifyOtpSchema = z.object({
