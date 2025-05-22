@@ -1,0 +1,134 @@
+
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { SidebarTrigger } from '@/components/ui/sidebar';
+import { UserCircle, Settings, LogOut, Loader2 } from 'lucide-react'; 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useToast } from '@/hooks/use-toast';
+import type { SessionUser } from '@/app/api/auth/session/route'; 
+import { Skeleton } from '@/components/ui/skeleton'; 
+
+// Removed BYPASS_AUTH_FOR_DEV constant
+
+export function AppHeader() {
+  const { toast } = useToast();
+  const [currentUser, setCurrentUser] = useState<SessionUser | null>(null);
+  const [isLoadingSession, setIsLoadingSession] = useState(true);
+
+  useEffect(() => {
+    const fetchSession = async () => {
+      setIsLoadingSession(true);
+      try {
+        const response = await fetch('/api/auth/session'); 
+        if (response.ok) {
+          const data = await response.json();
+          setCurrentUser(data.user); 
+        } else {
+          setCurrentUser(null); 
+        }
+      } catch (error) {
+        console.error("Failed to fetch session:", error);
+        setCurrentUser(null);
+      } finally {
+        setIsLoadingSession(false);
+      }
+    };
+    fetchSession();
+  }, []);
+
+  const handleSignOut = async () => {
+    try {
+      const response = await fetch('/api/auth/logout', { method: 'POST' });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Logout failed' }));
+        throw new Error(errorData.error || 'Logout failed');
+      }
+      toast({
+        title: "Signed Out",
+        description: "You have been successfully signed out.",
+      });
+      setCurrentUser(null); 
+      window.location.href = '/auth/login'; 
+    } catch (error) {
+      toast({
+        title: "Logout Error",
+        description: (error as Error).message || "Could not sign out. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getAvatarFallback = (name?: string) => {
+    if (!name || name.trim() === '') return <UserCircle className="h-full w-full" />;
+    const nameParts = name.split(' ').filter(Boolean);
+    if (nameParts.length === 1 && nameParts[0].length > 0) {
+        return nameParts[0].charAt(0).toUpperCase();
+    }
+    if (nameParts.length > 1 && nameParts[0].length > 0 && nameParts[nameParts.length - 1].length > 0) {
+        return (nameParts[0].charAt(0) + nameParts[nameParts.length - 1].charAt(0)).toUpperCase();
+    }
+    return <UserCircle className="h-full w-full" />;
+  };
+
+  return (
+    <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6">
+      <SidebarTrigger className="md:hidden" />
+      <div className="flex-1">
+        {/* Placeholder for page title or breadcrumbs */}
+      </div>
+      <div className="flex items-center gap-4">
+        {isLoadingSession ? (
+          <Skeleton className="h-10 w-10 rounded-full" />
+        ) : currentUser ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                <Avatar className="h-9 w-9">
+                  <AvatarImage src={currentUser.avatarUrl || undefined} alt={currentUser.name || 'User'} data-ai-hint="avatar person" />
+                  <AvatarFallback>{getAvatarFallback(currentUser.name)}</AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56" align="end" forceMount>
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">{currentUser.name}</p>
+                  <p className="text-xs leading-none text-muted-foreground">
+                    {currentUser.email}
+                  </p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/settings">
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Settings</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleSignOut}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Sign Out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <Button asChild variant="outline" size="sm">
+            <Link href="/auth/login">Sign In</Link>
+          </Button>
+        )}
+      </div>
+    </header>
+  );
+}

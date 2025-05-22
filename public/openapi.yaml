@@ -1,0 +1,1453 @@
+
+openapi: 3.0.0
+info:
+  title: ChronoTask API
+  version: v1.0.0
+  description: API for managing tasks and user settings in the ChronoTask application.
+servers:
+  - url: /api
+    description: Main API server
+
+components:
+  schemas:
+    Task:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+        userId:
+          type: string
+          format: uuid
+          example: "user-abc-123"
+        title:
+          type: string
+          example: "Design new homepage"
+        description:
+          type: string
+          nullable: true
+          example: "Create a modern and responsive design for the homepage."
+        status:
+          type: string
+          enum: [Backlog, In Progress, Review, Done]
+          example: "In Progress"
+        priority:
+          type: string
+          enum: [low, medium, high]
+          nullable: true
+          example: "high"
+        dueDate:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2024-12-31T23:59:59Z"
+        startDate:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2024-12-01T00:00:00Z"
+        tags:
+          type: array
+          items:
+            type: string
+          nullable: true
+          example: ["design", "frontend", "urgent"]
+        subtasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Subtask'
+          nullable: true
+        timeLogs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeLog'
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+          example: "Remember to check the branding guidelines."
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-01T10:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2024-01-02T11:30:00Z"
+    Subtask:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "sub-xyz-789"
+        title:
+          type: string
+          example: "Create wireframes"
+        completed:
+          type: boolean
+          example: false
+    TimeLog:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "tl-mno-456"
+        startTime:
+          type: string
+          format: date-time
+          example: "2024-01-02T10:00:00Z"
+        endTime:
+          type: string
+          format: date-time
+          example: "2024-01-02T11:30:00Z"
+        notes:
+          type: string
+          nullable: true
+          example: "Worked on initial wireframes and component breakdown."
+    CreateTaskRequest:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          minLength: 1
+          example: "Develop authentication module"
+        description:
+          type: string
+          nullable: true
+          example: "Implement JWT-based authentication with password hashing."
+        status:
+          type: string
+          enum: [Backlog, In Progress, Review, Done]
+          default: "Backlog"
+          example: "Backlog"
+        priority:
+          type: string
+          enum: [low, medium, high]
+          default: "medium"
+          example: "medium"
+        dueDate:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-01-15T18:00:00Z"
+        startDate:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-01-10T09:00:00Z"
+        tags:
+          type: array
+          items:
+            type: string
+          default: []
+          example: ["backend", "security"]
+        subtasks:
+          type: array
+          items:
+            type: object # Subtasks during creation might not have IDs yet if generated server-side
+            properties:
+              title:
+                type: string
+                minLength: 1
+              completed:
+                type: boolean
+                default: false
+          default: []
+          example: [{title: "Setup database schema", completed: false}]
+        notes:
+          type: string
+          nullable: true
+          example: "Ensure bcrypt is used for passwords."
+    UpdateTaskRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          example: "Finalize API documentation"
+        description:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [Backlog, In Progress, Review, Done]
+        priority:
+          type: string
+          enum: [low, medium, high]
+          nullable: true
+        dueDate:
+          type: string
+          format: date-time
+          nullable: true
+        startDate:
+          type: string
+          format: date-time
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+          nullable: true
+        subtasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Subtask' # Expect full subtask objects on update
+          nullable: true
+        timeLogs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeLog' # Expect full time log objects on update
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+    UserRole:
+      type: string
+      enum: [Admin, Editor, Viewer]
+      example: Viewer
+    User: # For general user display, not for sensitive creation/update
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "user-abc-123"
+        name:
+          type: string
+          example: "Jane Doe"
+        email:
+          type: string
+          format: email
+          example: "jane.doe@example.com"
+        role:
+          $ref: '#/components/schemas/UserRole'
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+          example: "https://placehold.co/100x100.png"
+        isTwoFactorEnabled:
+          type: boolean
+          description: "Indicates if 2FA is enabled for the user."
+          example: false
+        emailNotificationsEnabled:
+          type: boolean
+          description: "User preference for email notifications."
+          example: true
+        inAppNotificationsEnabled:
+          type: boolean
+          description: "User preference for in-app notifications."
+          example: true
+        smtpHost:
+          type: string
+          nullable: true
+          example: "smtp.example.com"
+        smtpPort:
+          type: integer
+          nullable: true
+          example: 587
+        smtpEncryption:
+          type: string
+          enum: [none, ssl, starttls]
+          nullable: true
+          example: "starttls"
+        smtpUsername:
+          type: string
+          nullable: true
+          example: "user@example.com"
+        smtpSendFrom:
+          type: string
+          format: email
+          nullable: true
+          description: "Default 'send from' email for SMTP."
+          example: "noreply@example.com"
+        joinedDate:
+          type: string
+          format: date-time
+          example: "2023-01-01T12:00:00Z"
+    UserProfile: # Schema for /api/me/profile
+      allOf:
+        - $ref: '#/components/schemas/User'
+        # UserProfile might have slightly different fields or emphasis
+        # For now, it's the same as User for GET, but PUT is different
+    UpdateProfileRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Jane Doe Smith"
+        email:
+          type: string
+          format: email
+          example: "jane.smith@example.com"
+        avatarUrl:
+          type: string
+          format: uri # Or allow data URI: pattern: "^(https?://|data:image/)"
+          description: "URL or Data URI for the user's avatar."
+          nullable: true
+          example: "https://placehold.co/100x100.png"
+        isTwoFactorEnabled:
+          type: boolean
+        emailNotificationsEnabled:
+          type: boolean
+        inAppNotificationsEnabled:
+          type: boolean
+        smtpHost:
+          type: string
+          nullable: true
+        smtpPort:
+          type: integer
+          nullable: true
+        smtpEncryption:
+          type: string
+          enum: [none, ssl, starttls]
+          nullable: true
+        smtpUsername:
+          type: string
+          nullable: true
+        smtpPassword:
+          type: string
+          format: password
+          nullable: true
+          description: "User's SMTP password. Sent only on update, not returned."
+        smtpSendFrom:
+          type: string
+          format: email
+          nullable: true
+    ChangePasswordRequest:
+      type: object
+      required:
+        - currentPassword
+        - newPassword
+      properties:
+        currentPassword:
+          type: string
+          format: password
+        newPassword:
+          type: string
+          format: password
+          minLength: 6
+    ApiKey:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "apikey-xyz-789"
+        name:
+          type: string
+          example: "My Production App Key"
+        keyPrefix:
+          type: string
+          example: "sk_live_demo_"
+        last4:
+          type: string
+          example: "f3g4"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-05-01T10:00:00Z"
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-05-01T10:00:00Z"
+        lastUsedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2024-05-20T12:00:00Z"
+        fullKey:
+          type: string
+          description: "The full, unhashed API key. Returned only once upon creation. Must be saved by the user immediately."
+          example: "sk_live_demo_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    CreateApiKeyRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          example: "My Test Application Key"
+        expiresInDays:
+          type: integer
+          format: int32
+          description: "Optional. Number of days until the key expires."
+          nullable: true
+          example: 30
+    CreateApiKeyResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiKey' # Will include fullKey
+    UserCreationRequest: # Admin creating a user
+      type: object
+      required:
+        - name
+        - email
+        - password
+      properties:
+        name:
+          type: string
+          example: "New User"
+        email:
+          type: string
+          format: email
+          example: "new.user@example.com"
+        password:
+          type: string
+          format: password
+          minLength: 6
+          description: "Password for the new user. Will be hashed by the server."
+        role:
+          $ref: '#/components/schemas/UserRole'
+          default: "Viewer"
+        avatarUrl:
+          type: string
+          format: uri # Or allow data URI
+          nullable: true
+        isTwoFactorEnabled:
+          type: boolean
+          default: false
+    UserUpdateRequest: # Admin updating a user
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          minLength: 6
+          nullable: true
+          description: "Optional. New password for the user. Will be hashed if provided."
+        role:
+          $ref: '#/components/schemas/UserRole'
+        avatarUrl:
+          type: string
+          format: uri # Or allow data URI
+          nullable: true
+        isTwoFactorEnabled:
+          type: boolean
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Invalid input."
+        details: # For Zod validation errors
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          example:
+            email: ["Invalid email address."]
+            password: ["Password must be at least 6 characters."]
+    SuccessMessage:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Operation successful."
+
+  securitySchemes:
+    bearerAuth: # Can be used to denote JWT authentication
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+paths:
+  /tasks:
+    get:
+      summary: List all tasks for the authenticated user
+      tags: [Tasks]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: A list of tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Task'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+    post:
+      summary: Create a new task
+      tags: [Tasks]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTaskRequest'
+      responses:
+        '201':
+          description: Task created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /tasks/{taskId}:
+    parameters:
+      - name: taskId
+        in: path
+        required: true
+        description: ID of the task to operate on
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get a specific task by ID
+      tags: [Tasks]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Detailed information about the task
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError' # If task doesn't belong to user
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    put:
+      summary: Update an existing task
+      tags: [Tasks]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTaskRequest'
+      responses:
+        '200':
+          description: Task updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      summary: Delete a task
+      tags: [Tasks]
+      security:
+        - bearerAuth: []
+      responses:
+        '200': # Or 204 No Content
+          description: Task deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  
+  # User Authentication Endpoints
+  /auth/register:
+    post:
+      summary: Register a new user
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name:
+                  type: string
+                  example: "John Doe"
+                email:
+                  type: string
+                  format: email
+                  example: "john.doe@example.com"
+                password:
+                  type: string
+                  format: password
+                  minLength: 6
+                  example: "sEcReTpAsSwOrD"
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                # Returns a subset of User, excluding password
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                  email:
+                    type: string
+                    format: email
+                  role:
+                    $ref: '#/components/schemas/UserRole'
+                  joinedDate:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: Email address already in use
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Email address already in use."
+  /auth/login:
+    post:
+      summary: Log in a user
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "john.doe@example.com"
+                password:
+                  type: string
+                  format: password
+                  example: "sEcReTpAsSwOrD"
+      responses:
+        '200':
+          description: Login successful or 2FA required
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object # Normal login
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User' # Excludes password
+                      message:
+                        type: string
+                        example: "Login successful"
+                  - type: object # 2FA Required
+                    properties:
+                      twoFactorRequired:
+                        type: boolean
+                        example: true
+                      userId:
+                        type: string
+                        format: uuid
+                        example: "user-abc-123"
+                      message:
+                        type: string
+                        example: "Two-Factor Authentication required."
+        '400':
+          description: Invalid input (e.g., missing email or password)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid credentials (email or password incorrect)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid email or password."
+        '500':
+          $ref: '#/components/responses/ServerError' # For JWT_SECRET config error
+  /auth/logout:
+    post:
+      summary: Log out a user
+      tags: [Auth]
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+  /auth/session:
+    get:
+      summary: Get current user session information
+      tags: [Auth]
+      responses:
+        '200':
+          description: Session information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/UserProfile' # or User, exclude password/secrets
+                    nullable: true
+        '401':
+          description: No active session or invalid token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: 'null'
+                    example: null
+                  error:
+                    type: string
+                    example: "No session token found."
+        '500':
+          $ref: '#/components/responses/ServerError' # For JWT_SECRET config error
+  /auth/forgot-password:
+    post:
+      summary: Request a password reset
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "user@example.com"
+      responses:
+        '200':
+          description: Password reset request processed (generic message for security)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+                properties:
+                  message:
+                    example: "If an account with that email exists, instructions to reset your password have been sent."
+        '400':
+          $ref: '#/components/responses/ValidationError'
+  /auth/reset-password:
+    post:
+      summary: Reset password using a token
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, newPassword]
+              properties:
+                token:
+                  type: string
+                  description: "The raw password reset token sent to the user."
+                  example: "longrandomresettokenstring"
+                newPassword:
+                  type: string
+                  format: password
+                  minLength: 6
+                  example: "newSecurePassword123"
+      responses:
+        '200':
+          description: Password reset successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+                properties:
+                  message:
+                    example: "Your password has been successfully reset."
+        '400':
+          description: Invalid input (e.g., weak password) or invalid/expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /auth/2fa-verify: # For verifying OTP during login
+    post:
+      summary: Verify 2FA OTP during login
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, otp]
+              properties:
+                userId:
+                  type: string
+                  format: uuid
+                  example: "user-abc-123"
+                otp:
+                  type: string
+                  pattern: '^[0-9]{6}$'
+                  example: "123456"
+      responses:
+        '200':
+          description: 2FA verification successful, login complete
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User' # Excludes password/secrets
+                  message:
+                    type: string
+                    example: "2FA verification successful. Login complete."
+        '400':
+          description: Invalid input (e.g., invalid OTP format) or invalid OTP
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "User not found."
+  /auth/invites/{token}:
+    get:
+      summary: Validate an invite token and get invite details
+      tags: [Auth, User Invites]
+      parameters:
+        - name: token
+          in: path
+          required: true
+          description: The raw invite token.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Invite details fetched successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  email:
+                    type: string
+                    format: email
+                  role:
+                    $ref: '#/components/schemas/UserRole'
+        '400':
+          $ref: '#/components/responses/ValidationError' # If token is malformed or missing
+        '404':
+          description: Invite token not found, expired, or already used.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid or expired invite token."
+  /auth/complete-invite:
+    post:
+      summary: Complete user registration using an invite token
+      tags: [Auth, User Invites]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, name, password]
+              properties:
+                token:
+                  type: string
+                  description: "The raw invite token."
+                name:
+                  type: string
+                  minLength: 1
+                password:
+                  type: string
+                  format: password
+                  minLength: 6
+      responses:
+        '201':
+          description: User registration successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+        '400':
+          $ref: '#/components/responses/ValidationError' # Includes invalid token
+        '409':
+          description: Email address from invite is already registered.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Email address is already registered."
+
+  # User Settings (current user)
+  /me/profile:
+    get:
+      summary: Get current user's profile
+      tags: [User Settings]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    put:
+      summary: Update current user's profile
+      tags: [User Settings]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '409': # If email is changed to one that's already in use
+          description: Email address already in use.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Email address already in use by another account."
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /me/password:
+    put:
+      summary: Change current user's password
+      tags: [User Settings]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: Password updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+        '400':
+          $ref: '#/components/responses/ValidationError' # e.g. weak new password
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403': # If current password doesn't match
+          description: Incorrect current password.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Incorrect current password."
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /me/api_keys:
+    get:
+      summary: List API keys for the current user
+      tags: [User Settings, API Keys]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: A list of API keys (excluding full key)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  # Exclude fullKey from list response
+                  allOf:
+                    - $ref: '#/components/schemas/ApiKey'
+                    - type: object
+                      properties:
+                        fullKey:
+                          readOnly: true # Indicates it's not typically present here
+                          description: "Not returned in list view."
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    post:
+      summary: Create a new API key for the current user
+      tags: [User Settings, API Keys]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateApiKeyRequest'
+      responses:
+        '201':
+          description: API Key created successfully (includes fullKey)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateApiKeyResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /me/api_keys/{apiKeyId}:
+    parameters:
+      - name: apiKeyId
+        in: path
+        required: true
+        description: ID of the API key to revoke
+        schema:
+          type: string
+          format: uuid
+    delete:
+      summary: Revoke an API key for the current user
+      tags: [User Settings, API Keys]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: API Key revoked successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError' # If API key not found or not owned by user
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /me/2fa/setup-initiate:
+    post:
+      summary: Initiate 2FA setup for the current user
+      tags: [User Settings, 2FA]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 2FA setup details (secret and OTPAuth URL)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  secret:
+                    type: string
+                    description: "Base32 encoded 2FA secret for manual entry."
+                    example: "JBSWY3DPEHPK3PXP"
+                  otpAuthUrl:
+                    type: string
+                    format: uri
+                    description: "otpauth:// URI for QR code generation."
+                    example: "otpauth://totp/ChronoTask:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=ChronoTask"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /me/2fa/setup-verify:
+    post:
+      summary: Verify OTP and enable 2FA for the current user
+      tags: [User Settings, 2FA]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [otp, secret]
+              properties:
+                otp:
+                  type: string
+                  pattern: '^[0-9]{6}$'
+                  example: "123456"
+                secret:
+                  type: string
+                  description: "The Base32 secret provided during setup initiation."
+                  example: "JBSWY3DPEHPK3PXP"
+      responses:
+        '200':
+          description: 2FA enabled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+        '400':
+          $ref: '#/components/responses/ValidationError' # Invalid OTP or secret
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /me/smtp/test-connection:
+    post:
+      summary: Test SMTP connection settings for the current user
+      tags: [User Settings, SMTP]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - smtpHost
+                - smtpPort
+                # smtpSendFrom is good practice for a test
+              properties:
+                smtpHost:
+                  type: string
+                  example: "smtp.example.com"
+                smtpPort:
+                  type: integer
+                  example: 587
+                smtpEncryption:
+                  type: string
+                  enum: [none, ssl, starttls]
+                  nullable: true
+                  example: "starttls"
+                smtpUsername:
+                  type: string
+                  nullable: true
+                  example: "user@example.com"
+                smtpPassword:
+                  type: string
+                  format: password
+                  nullable: true
+                smtpSendFrom:
+                  type: string
+                  format: email
+                  example: "noreply@example.com"
+      responses:
+        '200':
+          description: SMTP connection test result (simulated)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                example:
+                  success: true
+                  message: "SMTP connection test to smtp.example.com:587 was successful (simulated)."
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+
+  # Admin User Management Endpoints
+  /admin/users:
+    get:
+      summary: List all users (Admin only)
+      tags: [Admin - User Management]
+      security:
+        - bearerAuth: [] # Indicates admin role check needed
+      responses:
+        '200':
+          description: A list of all users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError' # Admin access required
+    post:
+      summary: Create a new user (Admin only)
+      tags: [Admin - User Management]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreationRequest'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          description: Email address already in use.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Email address already in use."
+  /admin/users/{userId}:
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        description: ID of the user to operate on
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get a specific user's details (Admin only)
+      tags: [Admin - User Management]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Detailed information about the user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    put:
+      summary: Update an existing user's details (Admin only)
+      tags: [Admin - User Management]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdateRequest'
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409': # If email is changed to one that's already in use
+          description: Email address already in use.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Email address already in use by another account."
+    delete:
+      summary: Delete a user (Admin only)
+      tags: [Admin - User Management]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /admin/invites:
+    post:
+      summary: Create a user invite (Admin only)
+      tags: [Admin - User Management, User Invites]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+                role:
+                  $ref: '#/components/schemas/UserRole'
+                  default: "Viewer"
+      responses:
+        '201':
+          description: User invite successfully generated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+                properties:
+                  message:
+                    example: "Invite successfully generated. If SMTP is configured, an email has been sent to user@example.com. Otherwise, check server logs for invite details if fallback logging is enabled in emailService.ts."
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          description: Email already registered or invite already pending.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "This email address is already registered."
+
+
+  # Reusable Response Components
+  components:
+    responses:
+      UnauthorizedError:
+        description: Unauthorized - Missing or invalid authentication token.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                error:
+                  type: string
+                  example: "Unauthorized"
+      ForbiddenError:
+        description: Forbidden - Insufficient permissions.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                error:
+                  type: string
+                  example: "Forbidden"
+      NotFoundError:
+        description: Not Found - The requested resource was not found.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                error:
+                  type: string
+                  example: "Resource not found."
+      ValidationError:
+        description: Bad Request - Invalid input data.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      ServerError:
+        description: Internal Server Error - E.g., JWT_SECRET not configured.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                error:
+                  type: string
+                  example: "Internal Server Error"

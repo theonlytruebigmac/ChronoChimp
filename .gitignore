@@ -1,0 +1,56 @@
+
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# Transpiled JavaScript files (if applicable)
+# /dist
+# /out
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Next.js build output
+/.next/
+/out/
+
+# Test results (if applicable)
+# /coverage
+
+# IDE and editor directories
+.idea/
+.vscode/*
+!.vscode/settings.json # Keep this if you want to share basic VSCode settings
+*.sublime-project
+*.sublime-workspace
+
+# Environment variables
+.env
+.env*.local
+!.env.example # If you have an example env file, don't ignore it
+
+# Operating System files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# SQLite database file
+/.data/
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal # SQLite journal files
+
+# Firebase
+.firebase/
+firebase-debug.log
