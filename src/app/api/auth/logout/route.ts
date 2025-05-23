@@ -1,20 +1,21 @@
-
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
 export async function POST(request: Request) {
   try {
-    cookies().set('session_token', '', {
+    // Fix: Await cookies() before using it
+    const cookieStore = await cookies();
+    cookieStore.set('session_token', '', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       maxAge: -1, // Expire the cookie immediately
-      path: '/', 
-      sameSite: 'lax', 
+      path: '/',
+      sameSite: 'lax',
     });
-
-    return NextResponse.json({ message: 'Logout successful' });
+    
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Logout failed:', error);
-    return NextResponse.json({ error: 'An unexpected error occurred during logout.' }, { status: 500 });
+    console.error('Error during logout:', error);
+    return NextResponse.json({ error: 'Failed to logout' }, { status: 500 });
   }
 }

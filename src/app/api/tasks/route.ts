@@ -1,4 +1,3 @@
-
 import { NextResponse, type NextRequest } from 'next/server';
 import { db, safeJSONParse } from '@/lib/db';
 import { randomUUID } from 'crypto';
@@ -14,7 +13,7 @@ async function getAuthUserId(request: NextRequest): Promise<string | null> {
     console.error("CRITICAL: JWT_SECRET is not defined in /api/tasks.");
     return null; // Indicates server configuration error
   }
-  const token = cookies().get('session_token')?.value;
+  const token = (await cookies()).get('session_token')?.value;
   if (!token) {
     return null; // No token, so unauthorized
   }
@@ -68,6 +67,8 @@ export async function GET(request: NextRequest) {
 
     const tasks: Task[] = dbTasks.map(task => ({
       ...task,
+      dueDate: task.dueDate || undefined, // Convert null to undefined
+      startDate: task.startDate || undefined, // Convert null to undefined
       tags: safeJSONParse<string[]>(task.tags, []),
       subtasks: safeJSONParse<Subtask[]>(task.subtasks, []),
       timeLogs: safeJSONParse<TimeLog[]>(task.timeLogs, []),
@@ -141,8 +142,8 @@ export async function POST(request: NextRequest) {
       description,
       status: status as TaskStatus,
       priority: priority as 'high' | 'medium' | 'low',
-      dueDate,
-      startDate,
+      dueDate: dueDate || undefined, // Convert null to undefined
+      startDate: startDate || undefined, // Convert null to undefined
       tags,
       subtasks: processedSubtasks,
       timeLogs: processedTimeLogs,

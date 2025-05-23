@@ -1,4 +1,3 @@
-
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
@@ -93,15 +92,27 @@ export async function middleware(request: NextRequest) {
       const { payload } = await jwtVerify(sessionToken, secret) as { payload: SessionUser };
       const userRole = payload.role;
 
+      // When checking admin access, add debugging
       if (isAdminPageRoute || isAdminApiRoute) {
         if (userRole !== 'Admin') {
+          console.log(`Access forbidden to ${pathname} - User role: ${userRole}, userId: ${payload.userId}`);
+          
+          // For API routes, return a JSON response
           if (isAdminApiRoute) {
-            return new NextResponse(JSON.stringify({ error: 'Forbidden: Admin access required' }), {
+            return new NextResponse(JSON.stringify({ 
+              error: 'Forbidden: Admin access required',
+              userRole: userRole // Include role in response for debugging
+            }), {
               status: 403,
               headers: { 'Content-Type': 'application/json' },
             });
           }
-          return NextResponse.redirect(new URL('/dashboard?error=forbidden', request.url));
+          
+          // For page routes, redirect with more descriptive error params
+          const dashboardUrl = new URL('/dashboard', request.url);
+          dashboardUrl.searchParams.set('error', 'forbidden');
+          dashboardUrl.searchParams.set('reason', `Your role (${userRole}) does not have admin access`);
+          return NextResponse.redirect(dashboardUrl);
         }
       }
       // If it's a user-specific API route, the presence of a valid token is enough for middleware.

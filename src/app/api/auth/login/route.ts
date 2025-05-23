@@ -1,8 +1,7 @@
-
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
+import { SignJWT } from 'jose';
 import { cookies } from 'next/headers';
 import type { UserRole, MockUser as User } from '@/app/admin/page';
 
@@ -51,16 +50,20 @@ export async function POST(request: Request) {
       }, { status: 200 });
     }
 
-    const validRoles: UserRole[] = ['Admin', 'Editor', 'Viewer'];
-    const userRole = validRoles.includes(user.role) ? user.role : 'Viewer';
+    // Convert the JWT_SECRET string to a Uint8Array before using it
+    const secretKey = new TextEncoder().encode(JWT_SECRET);
 
-    const { password: _dbPassword, twoFactorSecret: _dbTwoFactorSecret, ...userWithoutSensitiveData } = user;
-
-    const token = jwt.sign(
-      { userId: user.id, email: user.email, role: userRole, name: user.name, avatarUrl: user.avatarUrl },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRATION }
-    );
+    // Make sure the JWT includes the user's role, using capital-case format for Admin role
+    const token = await new SignJWT({
+      userId: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role // Ensure role is properly formatted (should be "Admin" not "admin")
+    })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
+      .setExpirationTime(JWT_EXPIRATION || '1h')
+      .sign(secretKey);
 
     // When deploying behind a reverse proxy like Traefik that handles SSL:
     // 1. Ensure `NODE_ENV` is set to `production` in your Next.js environment.
@@ -75,7 +78,7 @@ export async function POST(request: Request) {
       sameSite: 'lax',
     });
 
-    return NextResponse.json({ user: userWithoutSensitiveData, message: "Login successful" });
+    return NextResponse.json({ user, message: "Login successful" });
 
   } catch (error) {
     console.error('Login failed:', error);

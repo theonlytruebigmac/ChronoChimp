@@ -1,9 +1,9 @@
 
-openapi: 3.0.0
+openapi: 3.1.0
 info:
-  title: ChronoTask API
+  title: ChronoChimp API
   version: v1.0.0
-  description: API for managing tasks and user settings in the ChronoTask application.
+  description: API for managing tasks and user settings in the ChronoChimp application.
 servers:
   - url: /api
     description: Main API server
@@ -1116,7 +1116,7 @@ paths:
                     type: string
                     format: uri
                     description: "otpauth:// URI for QR code generation."
-                    example: "otpauth://totp/ChronoTask:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=ChronoTask"
+                    example: "otpauth://totp/ChronoChimp:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=ChronoChimp"
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '500':

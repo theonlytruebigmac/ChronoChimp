@@ -9,7 +9,7 @@ export default function LoginPage() {
     <Card className="w-full max-w-md shadow-xl">
       <CardHeader className="text-center">
         <CardTitle className="text-2xl font-bold">Welcome Back!</CardTitle>
-        <CardDescription>Sign in to continue to ChronoTask</CardDescription>
+        <CardDescription>Sign in to continue to ChronoChimp</CardDescription>
       </CardHeader>
       <CardContent>
         <LoginForm />

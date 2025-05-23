@@ -21,7 +21,7 @@ const inter = Inter({
 // Since RootLayout is a client component, this export const metadata is not directly used here.
 // It should be defined in page.tsx files or a parent server component.
 // export const metadata: Metadata = {
-//   title: 'ChronoTask',
+//   title: 'ChronoChimp',
 //   description: 'Modern Task Management Application',
 // };
 

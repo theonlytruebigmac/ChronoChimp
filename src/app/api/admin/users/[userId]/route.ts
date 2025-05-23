@@ -1,4 +1,3 @@
-
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import type { MockUser as User, UserRole } from '@/app/admin/page';
@@ -23,7 +22,9 @@ const UpdateUserSchema = z.object({
 
 export async function GET(request: Request, { params }: Params) {
   try {
-    const { userId } = params;
+    // Fix: Access userId directly without destructuring
+    const userId = params.userId;
+    
     const stmt = db.prepare('SELECT id, name, email, role, joinedDate, avatarUrl, isTwoFactorEnabled FROM users WHERE id = ?');
     let user = stmt.get(userId) as User | undefined;
 
@@ -43,7 +44,9 @@ export async function GET(request: Request, { params }: Params) {
 
 export async function PUT(request: Request, { params }: Params) {
   try {
-    const { userId } = params;
+    // Fix: Access userId directly without destructuring
+    const userId = params.userId;
+    
     const body = await request.json();
 
     const validationResult = UpdateUserSchema.safeParse(body);
@@ -117,8 +120,9 @@ export async function PUT(request: Request, { params }: Params) {
 
 export async function DELETE(request: Request, { params }: Params) {
   try {
-    const { userId } = params;
-
+    // Fix: Access userId directly without destructuring
+    const userId = params.userId;
+    
     // Explicitly delete API keys associated with the user first
     const deleteApiKeysStmt = db.prepare('DELETE FROM api_keys WHERE userId = ?');
     deleteApiKeysStmt.run(userId);

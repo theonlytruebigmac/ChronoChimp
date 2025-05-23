@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -12,9 +11,11 @@ import { cn } from "@/lib/utils";
 import { useQuery } from '@tanstack/react-query';
 import { fetchTasks } from '@/lib/api/tasks';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from "@/hooks/use-toast"; // Use existing toast implementation
 
 export default function DashboardPage() {
   const [isClient, setIsClient] = useState(false);
+  const { toast } = useToast(); // Get the toast function from the hook
 
   useEffect(() => {
     setIsClient(true);
@@ -64,6 +65,26 @@ export default function DashboardPage() {
     { title: "Tasks In Progress", valueKey: 'tasksInProgress' as const, icon: Clock, color: "text-yellow-500", href: "/tasks?filter=inProgress" },
     { title: "Overdue Tasks", valueKey: 'overdueTasks' as const, icon: AlertTriangle, color: "text-red-500", href: "/tasks?filter=overdue" },
   ];
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get('error');
+    const reason = params.get('reason');
+    
+    if (error === 'forbidden') {
+      toast({
+        title: "Access Denied",
+        description: reason || "You don't have permission to access the admin area.",
+        variant: "destructive",
+      });
+      
+      // Clean up URL after showing toast
+      const url = new URL(window.location.href);
+      url.searchParams.delete('error');
+      url.searchParams.delete('reason');
+      window.history.replaceState({}, document.title, url.toString());
+    }
+  }, [toast]); // Add toast to dependency array
 
   if (isLoading) {
     return (
@@ -168,7 +189,7 @@ export default function DashboardPage() {
                       </p>
                     )}
                   </div>
-                  <Link href={`/tasks/view/${task.id}`} passHref legacyBehavior>
+                  <Link href={`/tasks/view/${task.id}`}>
                     <Button variant="ghost" size="sm" className="mt-2 sm:mt-0">
                       View Task <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>

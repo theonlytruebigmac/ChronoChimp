@@ -1,226 +1,232 @@
+"use client";
 
-'use client';
-
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import Link from 'next/link';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { AlertTriangle, UserPlus } from 'lucide-react';
+import Link from 'next/link';
+import { UserCheck } from 'lucide-react';
 
-function AcceptInviteForm() {
-  const router = useRouter();
+export default function AcceptInvitePage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { toast } = useToast();
 
   const [token, setToken] = useState<string | null>(null);
-  const [isLoadingToken, setIsLoadingToken] = useState(true);
-  const [inviteDetails, setInviteDetails] = useState<{ email: string; role: string } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const [name, setName] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [email, setEmail] = useState<string>('');
+  const [role, setRole] = useState<string>('');
+  const [name, setName] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const [confirmPassword, setConfirmPassword] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isValid, setIsValid] = useState<boolean>(false);
 
   useEffect(() => {
-    const tokenFromUrl = searchParams.get('token');
-    if (tokenFromUrl) {
-      setToken(tokenFromUrl);
-      // Validate token and fetch invite details
-      const fetchInvite = async () => {
-        setIsLoadingToken(true);
-        setError(null);
-        try {
-          const response = await fetch(`/api/auth/invites/${tokenFromUrl}`);
-          const data = await response.json();
-          if (!response.ok) {
-            throw new Error(data.error || 'Failed to validate invite token.');
-          }
-          setInviteDetails(data);
-        } catch (err: any) {
-          setError(err.message || 'Invalid or expired invite link.');
-          setInviteDetails(null);
-        } finally {
-          setIsLoadingToken(false);
-        }
-      };
-      fetchInvite();
+    const tokenParam = searchParams.get('token');
+    if (tokenParam) {
+      setToken(tokenParam);
+      // Verify token and fetch invite details
+      verifyInviteToken(tokenParam);
     } else {
-      setError('No invite token provided.');
-      setIsLoadingToken(false);
+      setIsLoading(false);
+      toast({
+        title: "Error",
+        description: "Invalid invitation link. Please request a new invitation.",
+        variant: "destructive",
+      });
     }
   }, [searchParams]);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError(null);
-
-    if (!token) {
-      setError("No invite token available for submission.");
-      return;
-    }
-    if (password !== confirmPassword) {
-      setError("Passwords do not match.");
-      toast({ title: "Error", description: "Passwords do not match.", variant: "destructive" });
-      return;
-    }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters long.");
-      toast({ title: "Error", description: "Password must be at least 6 characters long.", variant: "destructive" });
-      return;
-    }
-
-    setIsSubmitting(true);
+  const verifyInviteToken = async (inviteToken: string) => {
     try {
+      const response = await fetch(`/api/auth/verify-invite?token=${encodeURIComponent(inviteToken)}`);
+      const data = await response.json();
+      
+      if (response.ok && data.valid) {
+        setEmail(data.email);
+        setRole(data.role);
+        setIsValid(true);
+      } else {
+        toast({
+          title: "Invalid Invitation",
+          description: data.error || "This invitation is invalid or has expired.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to verify invitation. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log("Form submission started");
+    
+    if (!token) {
+      toast({ title: "Error", description: "Invalid invitation token", variant: "destructive" });
+      return;
+    }
+    
+    if (!name.trim()) {
+      toast({ title: "Error", description: "Please enter your name", variant: "destructive" });
+      return;
+    }
+    
+    if (password !== confirmPassword) {
+      toast({ title: "Error", description: "Passwords do not match", variant: "destructive" });
+      return;
+    }
+    
+    if (password.length < 6) {
+      toast({ title: "Error", description: "Password must be at least 6 characters", variant: "destructive" });
+      return;
+    }
+    
+    setIsSubmitting(true);
+    console.log("Submitting to /api/auth/accept-invite with token:", token.substring(0, 8) + "...");
+    
+    try {
+      // Make sure correct API endpoint is called
       const response = await fetch('/api/auth/complete-invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, name, password }),
+        body: JSON.stringify({ 
+          token, 
+          name, 
+          password,
+          email // Include email for additional verification
+        }),
       });
+      
+      console.log("Response status:", response.status);
       const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to complete registration.');
+      console.log("Response data:", data);
+      
+      if (response.ok) {
+        toast({ title: "Success!", description: "Your account has been created. You can now sign in." });
+        setTimeout(() => router.push('/auth/signin'), 1500); // Give toast time to display
+      } else {
+        toast({ 
+          title: "Error", 
+          description: data.error || "Failed to create account", 
+          variant: "destructive" 
+        });
       }
-      toast({
-        title: 'Registration Successful!',
-        description: data.message || 'You can now log in.',
+    } catch (error) {
+      console.error("Error creating account:", error);
+      toast({ 
+        title: "Error", 
+        description: "An unexpected error occurred while creating your account", 
+        variant: "destructive" 
       });
-      router.push('/auth/login');
-    } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred.');
-      toast({ title: "Error", description: err.message || "Registration failed.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (isLoadingToken) {
+  if (isLoading) {
     return (
-      <Card className="w-full max-w-md shadow-xl">
-        <CardHeader>
-          <CardTitle className="text-center text-2xl">Validating Invite...</CardTitle>
+      <Card className="w-full">
+        <CardHeader className="text-center">
+          <CardTitle>Verifying invitation...</CardTitle>
+          <CardDescription>Please wait while we verify your invitation.</CardDescription>
         </CardHeader>
-        <CardContent className="text-center">
-          <p className="text-muted-foreground">Please wait while we check your invite link.</p>
-        </CardContent>
       </Card>
     );
   }
 
-  if (error || !inviteDetails) {
+  if (!isValid) {
     return (
-      <Card className="w-full max-w-md shadow-xl">
+      <Card className="w-full">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl flex items-center justify-center gap-2">
-            <AlertTriangle className="h-6 w-6 text-destructive" /> Invite Error
-          </CardTitle>
+          <CardTitle className="text-destructive">Invalid Invitation</CardTitle>
+          <CardDescription>This invitation link is invalid or has expired.</CardDescription>
         </CardHeader>
-        <CardContent className="text-center">
-          <p className="text-destructive">{error || 'This invite link is invalid or has expired.'}</p>
-          <p className="mt-4 text-sm">
-            <Link href="/auth/login" className="text-primary hover:underline">
-              Go to Login
-            </Link>
-          </p>
-        </CardContent>
+        <CardFooter className="flex justify-center">
+          <Link href="/auth/signin">
+            <Button variant="outline">Go to Sign In</Button>
+          </Link>
+        </CardFooter>
       </Card>
     );
   }
 
   return (
-    <Card className="w-full max-w-md shadow-xl">
+    <Card className="w-full">
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl font-bold">Complete Your Registration</CardTitle>
-        <CardDescription>You've been invited to join ChronoTask! Please set up your account.</CardDescription>
+        <CardTitle>Complete Your Registration</CardTitle>
+        <CardDescription>
+          You've been invited to join ChronoChimp! Please set up your account.
+        </CardDescription>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit}>
+        <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email Address</Label>
-            <Input
-              id="email"
-              type="email"
-              value={inviteDetails.email}
-              readOnly
-              disabled
-              className="text-base bg-muted"
-            />
-            <p className="text-xs text-muted-foreground">Invited as: {inviteDetails.role}</p>
+            <Input id="email" type="email" value={email} readOnly disabled />
+            <p className="text-xs text-muted-foreground">Invited as: {role}</p>
           </div>
-
           <div className="space-y-2">
-            <Label htmlFor="name">Full Name <span className="text-destructive">*</span></Label>
-            <Input
-              id="name"
-              type="text"
-              placeholder="Your Name"
+            <Label htmlFor="name">Full Name</Label>
+            <Input 
+              id="name" 
+              placeholder="Your Name" 
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              className="text-base"
-              disabled={isSubmitting}
             />
           </div>
-
           <div className="space-y-2">
-            <Label htmlFor="password">Password <span className="text-destructive">*</span></Label>
-            <Input
-              id="password"
-              type="password"
+            <Label htmlFor="password">Password</Label>
+            <Input 
+              id="password" 
+              type="password" 
               placeholder="Choose a password (min. 6 chars)"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => setPassword(e.target.value)} 
               required
-              className="text-base"
-              disabled={isSubmitting}
             />
           </div>
-
           <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirm Password <span className="text-destructive">*</span></Label>
-            <Input
-              id="confirmPassword"
-              type="password"
+            <Label htmlFor="confirmPassword">Confirm Password</Label>
+            <Input 
+              id="confirmPassword" 
+              type="password" 
               placeholder="Confirm your password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
-              className="text-base"
-              disabled={isSubmitting}
             />
           </div>
-          
-          {error && <p className="text-sm text-destructive text-center">{error}</p>}
-
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
-            {isSubmitting ? 'Creating Account...' : <><UserPlus className="mr-2 h-4 w-4" /> Create Account</>}
+        </CardContent>
+        <CardFooter className="flex flex-col space-y-4">
+          <Button 
+            type="submit" 
+            className="w-full" 
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Creating Account..." : (
+              <>
+                <UserCheck className="mr-2 h-4 w-4" />
+                Create Account
+              </>
+            )}
           </Button>
-        </form>
-         <p className="mt-6 text-center text-sm text-muted-foreground">
-          Already have an account?{' '}
-          <Link href="/auth/login" className="font-medium text-primary hover:underline">
-            Sign In
-          </Link>
-        </p>
-      </CardContent>
+          <p className="text-sm text-center text-muted-foreground">
+            Already have an account? <Link href="/auth/signin" className="underline">Sign In</Link>
+          </p>
+        </CardFooter>
+      </form>
     </Card>
-  );
-}
-
-export default function AcceptInvitePage() {
-  // Suspense boundary is necessary because useSearchParams() is a Client Hook
-  return (
-    <Suspense fallback={
-      <Card className="w-full max-w-md shadow-xl">
-        <CardHeader><CardTitle className="text-center text-2xl">Loading Invite...</CardTitle></CardHeader>
-        <CardContent><p className="text-muted-foreground text-center">Please wait...</p></CardContent>
-      </Card>
-    }>
-      <AcceptInviteForm />
-    </Suspense>
   );
 }

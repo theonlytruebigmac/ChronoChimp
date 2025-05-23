@@ -12,7 +12,7 @@ async function getJwtSecretKey(): Promise<Uint8Array> {
   if (!JWT_SECRET_STRING) {
     throw new Error("JWT_SECRET is not defined in environment variables. /api/me/2fa/setup-verify cannot function securely.");
   }
-  return new TextEncoder().encode(JWT_SECRET_STRING);
+  return Buffer.from(JWT_SECRET_STRING, 'utf-8');
 }
 
 const VerifyOtpSchema = z.object({

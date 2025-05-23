@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -80,26 +79,27 @@ export default function SettingsPage() {
     queryKey: ['userProfile'],
     queryFn: fetchUserProfile,
     enabled: mounted,
-    onSuccess: (data) => {
-      if (data) {
-        setProfileData({ 
-            name: data.name, 
-            email: data.email, 
-            avatarUrl: data.avatarUrl || '',
-            emailNotificationsEnabled: data.emailNotificationsEnabled !== undefined ? data.emailNotificationsEnabled : true,
-            inAppNotificationsEnabled: data.inAppNotificationsEnabled !== undefined ? data.inAppNotificationsEnabled : true,
-            isTwoFactorEnabled: data.isTwoFactorEnabled !== undefined ? data.isTwoFactorEnabled : false,
-            // smtpHost, smtpPort, etc. are handled by their own state variables for more direct control in their form section
-        });
-        setProfilePreview(data.avatarUrl || "https://placehold.co/100x100.png");
-        setSmtpHost(data.smtpHost || '');
-        setSmtpPort(data.smtpPort ? String(data.smtpPort) : '');
-        setSmtpEncryption(data.smtpEncryption || 'starttls');
-        setSmtpUsername(data.smtpUsername || '');
-        setSmtpSendFrom(data.smtpSendFrom || '');
-      }
-    },
   });
+
+  // Add this effect to handle the success logic that was previously in onSuccess
+  useEffect(() => {
+    if (userProfile) {
+      setProfileData({ 
+        name: userProfile.name, 
+        email: userProfile.email, 
+        avatarUrl: userProfile.avatarUrl || '',
+        emailNotificationsEnabled: userProfile.emailNotificationsEnabled !== undefined ? userProfile.emailNotificationsEnabled : true,
+        inAppNotificationsEnabled: userProfile.inAppNotificationsEnabled !== undefined ? userProfile.inAppNotificationsEnabled : true,
+        isTwoFactorEnabled: userProfile.isTwoFactorEnabled !== undefined ? userProfile.isTwoFactorEnabled : false,
+      });
+      setProfilePreview(userProfile.avatarUrl || "https://placehold.co/100x100.png");
+      setSmtpHost(userProfile.smtpHost || '');
+      setSmtpPort(userProfile.smtpPort ? String(userProfile.smtpPort) : '');
+      setSmtpEncryption(userProfile.smtpEncryption || 'starttls');
+      setSmtpUsername(userProfile.smtpUsername || '');
+      setSmtpSendFrom(userProfile.smtpSendFrom || '');
+    }
+  }, [userProfile]);
 
   const { data: apiKeys = [], isLoading: isLoadingApiKeys, isError: isApiKeysError, error: apiKeysError, refetch: refetchApiKeys } = useQuery<ApiKey[], Error>({
     queryKey: ['userApiKeys'],
@@ -252,18 +252,117 @@ export default function SettingsPage() {
   
   const copyToClipboard = (text: string | undefined) => {
     if (!text) {
-        toast({ title: "Error", description: "No API Key to copy.", variant: "destructive"});
-        return;
-    }
-    if (!navigator.clipboard) {
-      toast({ title: "Copy Failed", description: "Clipboard API not available. Please copy manually.", variant: "destructive" });
+      toast({ title: "Error", description: "No API Key to copy.", variant: "destructive" });
       return;
     }
-    navigator.clipboard.writeText(text).then(() => {
+
+    console.log(`Attempting to copy text (length: ${text.length})`);
+
+    // Try three different clipboard approaches in sequence
+    tryClipboardAPI(text)
+      .catch(() => tryExecCommand(text))
+      .catch(() => tryRangeSelection(text))
+      .catch((error) => {
+        console.error("All clipboard methods failed:", error);
+        showManualCopyInstructions();
+      });
+  };
+
+  const tryClipboardAPI = async (text: string): Promise<void> => {
+    if (!navigator.clipboard) {
+      throw new Error("Clipboard API not available");
+    }
+    
+    try {
+      await navigator.clipboard.writeText(text);
       toast({ title: "Copied!", description: "API Key copied to clipboard." });
-    }).catch(err => {
-      console.error("Failed to copy API key: ", err);
-      toast({ title: "Copy Failed", description: "Could not copy API Key. Please copy manually.", variant: "destructive" });
+    } catch (err) {
+      console.error("Clipboard API failed:", err);
+      throw err; // Let the next method try
+    }
+  };
+
+  const tryExecCommand = (text: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      try {
+        // Create a temporary textarea element
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        
+        // Make it minimally visible to help with mobile devices
+        textArea.style.position = 'fixed';
+        textArea.style.top = '0';
+        textArea.style.left = '0';
+        textArea.style.width = '2em';
+        textArea.style.height = '2em';
+        textArea.style.padding = '0';
+        textArea.style.border = 'none';
+        textArea.style.outline = 'none';
+        textArea.style.boxShadow = 'none';
+        textArea.style.background = 'transparent';
+        
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        if (successful) {
+          toast({ title: "Copied!", description: "API Key copied using fallback method." });
+          resolve();
+        } else {
+          reject(new Error("execCommand failed"));
+        }
+      } catch (err) {
+        console.error("execCommand clipboard method failed:", err);
+        reject(err);
+      }
+    });
+  };
+
+  const tryRangeSelection = (text: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      try {
+        const range = document.createRange();
+        const selection = window.getSelection();
+        
+        // Create a temporary span with the text
+        const span = document.createElement('span');
+        span.textContent = text;
+        span.style.position = 'fixed';
+        span.style.top = '0';
+        span.style.clip = 'rect(0, 0, 0, 0)';
+        span.style.whiteSpace = 'pre'; // Preserve whitespace
+        
+        document.body.appendChild(span);
+        
+        range.selectNodeContents(span);
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+        
+        const successful = document.execCommand('copy');
+        document.body.removeChild(span);
+        
+        if (successful) {
+          toast({ title: "Copied!", description: "API Key copied using range selection." });
+          resolve();
+        } else {
+          reject(new Error("Range selection copy failed"));
+        }
+      } catch (err) {
+        console.error("Range selection clipboard method failed:", err);
+        reject(err);
+      }
+    });
+  };
+
+  const showManualCopyInstructions = () => {
+    toast({
+      title: "Automatic Copy Failed",
+      description: "Please click the API key field to select it, then use your device's copy function.",
+      variant: "destructive",
+      duration: 5000
     });
   };
 
@@ -344,8 +443,11 @@ export default function SettingsPage() {
       const { secret, otpAuthUrl } = await response.json();
       setTwoFactorSecretForDialog(secret);
 
+      // Use the correct options type for QRCode.toDataURL
+      // and properly await the promise
       const qrDataUrl = await QRCode.toDataURL(otpAuthUrl);
       setQrCodeDataUrl(qrDataUrl);
+      
       setIs2FASetupDialogOpen(true);
     } catch (err: any) {
       console.error("Failed to initiate 2FA setup:", err);
@@ -715,15 +817,53 @@ export default function SettingsPage() {
                           Please copy your new API key. You won't be able to see it again.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
-                      <div className="space-y-2 mt-2 p-3 bg-muted rounded-md border">
+                      <div className="space-y-4 mt-2 p-3 bg-muted rounded-md border">
                         <p className="text-sm font-semibold">Name: {generatedApiKey.name}</p>
-                        <div className="flex items-center justify-between gap-2">
-                            <Input type="text" readOnly value={generatedApiKey.fullKey || "Error: Key not available"} className="font-mono text-sm" />
-                            <Button variant="outline" size="icon" onClick={() => copyToClipboard(generatedApiKey.fullKey)}>
-                                <Copy className="h-4 w-4" />
-                                <span className="sr-only">Copy API Key</span>
+                        
+                        {/* Key display and copy section */}
+                        <div className="flex flex-col gap-2">
+                          <div className="flex gap-2">
+                            <div className="flex-1 relative">
+                              <textarea
+                                readOnly
+                                value={generatedApiKey.fullKey || "Error: Key not available"}
+                                className="w-full min-h-[80px] p-2 font-mono text-sm border rounded resize-none"
+                                onClick={(e) => {
+                                  e.currentTarget.select();
+                                  // Also try to copy on click as another fallback
+                                  try { 
+                                    document.execCommand('copy');
+                                    toast({ title: "Copied!", description: "API Key copied to clipboard." });
+                                  } catch (err) {
+                                    // Silent failure - let the user manually copy
+                                  }
+                                }}
+                              />
+                              <div className="absolute bottom-2 right-2 text-xs text-muted-foreground bg-muted px-1 rounded-sm">
+                                Click to select all
+                              </div>
+                            </div>
+                            <Button 
+                              variant="outline" 
+                              size="icon"
+                              className="self-start" 
+                              onClick={() => copyToClipboard(generatedApiKey.fullKey)}
+                            >
+                              <Copy className="h-4 w-4" />
+                              <span className="sr-only">Copy API Key</span>
                             </Button>
+                          </div>
+                          
+                          <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                            <p className="font-medium mb-1">If copy button doesn't work:</p>
+                            <ol className="list-decimal list-inside space-y-1">
+                              <li>Click the text area above to select all text</li>
+                              <li>Use keyboard shortcut: {navigator.platform.includes('Mac') ? '⌘+C' : 'Ctrl+C'}</li>
+                              <li>Or right-click and select "Copy"</li>
+                            </ol>
+                          </div>
                         </div>
+                        
                         {generatedApiKey.expiresAt && (
                             <p className="text-xs text-muted-foreground">Expires: {formatDateSafe(generatedApiKey.expiresAt)}</p>
                         )}

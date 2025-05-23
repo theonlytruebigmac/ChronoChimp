@@ -1,4 +1,3 @@
-
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { jwtVerify, type JWTPayload } from 'jose'; // Ensure JWTPayload is imported if used
@@ -34,7 +33,9 @@ export interface SessionUser extends JWTPayload { // Ensure SessionUser aligns w
 export async function GET(request: NextRequest) {
   try {
     const secret = await getJwtSecretKey(); // This will throw if JWT_SECRET is not configured
-    const cookieStore = cookies();
+    
+    // Fix: Await the cookies() call before using it
+    const cookieStore = await cookies();
     const token = cookieStore.get('session_token')?.value;
 
     if (!token) {
@@ -60,6 +61,9 @@ export async function GET(request: NextRequest) {
       // console.warn('Session JWT verification failed:', error); // Keep for debugging if needed
       // Clear the invalid cookie
       const response = NextResponse.json({ user: null, error: 'Invalid or expired session token.' }, { status: 401 });
+      
+      // Fix: Also await cookies() here
+      const cookieStore = await cookies();
       response.cookies.set('session_token', '', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',

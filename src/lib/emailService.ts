@@ -1,5 +1,5 @@
-
 import nodemailer from 'nodemailer';
+import SMTPTransport from 'nodemailer/lib/smtp-transport';
 
 interface EmailOptions {
   to: string;
@@ -23,13 +23,25 @@ const BASE_URL = process.env.BASE_URL;
  * @param options - Email options including recipient, subject, and content.
  */
 async function sendEmail(options: EmailOptions): Promise<void> {
-  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS || !SMTP_FROM_ADDRESS) {
-    console.error("ERROR: SMTP environment variables (SMTP_HOST, SMTP_USER, SMTP_PASS, SMTP_FROM_ADDRESS) are not fully configured.");
+  // Try to get user-configured SMTP settings first
+  const userSmtpSettings = await getUserSmtpSettings();
+  
+  // Use user settings if available, fall back to environment variables
+  const host = userSmtpSettings?.host || SMTP_HOST;
+  const port = userSmtpSettings?.port || SMTP_PORT;
+  const encryption = userSmtpSettings?.encryption || (SMTP_SECURE ? 'ssl' : 'starttls');
+  const username = userSmtpSettings?.username || SMTP_USER;
+  const password = userSmtpSettings?.password || SMTP_PASS;
+  const fromAddress = userSmtpSettings?.fromAddress || SMTP_FROM_ADDRESS;
+  
+  // Check if we have the minimum required settings
+  if (!host || !username || !password || !fromAddress) {
+    console.error("ERROR: SMTP settings (host, username, password, from address) are not fully configured.");
     console.warn("Email not sent. Simulating email send for development:");
     console.log("====================================================");
     console.log("SIMULATING EMAIL SEND (SMTP NOT CONFIGURED)");
     console.log("====================================================");
-    console.log(`From: ${SMTP_FROM_ADDRESS || 'not-configured@example.com'}`);
+    console.log(`From: ${fromAddress || 'not-configured@example.com'}`);
     console.log(`To: ${options.to}`);
     console.log(`Subject: ${options.subject}`);
     console.log("---------------- HTML Body -----------------------");
@@ -42,35 +54,117 @@ async function sendEmail(options: EmailOptions): Promise<void> {
     return;
   }
 
-  const transporter = nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: SMTP_PORT,
-    secure: SMTP_SECURE, // true for 465, false for other ports
+  // Create transport config with correct TypeScript typing for SMTP
+  const transportConfig: SMTPTransport.Options = {
+    host,
+    port,
+    secure: encryption === 'ssl', // true for 465, false for other ports like 587 (STARTTLS)
     auth: {
-      user: SMTP_USER,
-      pass: SMTP_PASS,
+      user: username,
+      pass: password,
     },
     tls: {
-      // do not fail on invalid certs for local testing if necessary
-      // rejectUnauthorized: process.env.NODE_ENV === 'production', 
-      rejectUnauthorized: false, // Be cautious with this in production
+      // Disable TLS certificate validation in development
+      rejectUnauthorized: process.env.NODE_ENV === 'production',
     }
-  });
+  };
+  
+  // Add requireTLS conditionally
+  if (encryption === 'starttls') {
+    transportConfig.requireTLS = true;
+  }
+  
+  console.log(`Attempting to send email using: ${host}:${port} (${encryption}) from ${fromAddress}`);
 
   try {
+    const transporter = nodemailer.createTransport(transportConfig);
+    
+    // Verify connection configuration
+    await transporter.verify().catch((verifyError) => {
+      console.error('SMTP Verification failed:', verifyError);
+      throw verifyError;
+    });
+
     const info = await transporter.sendMail({
-      from: `"ChronoTask" <${SMTP_FROM_ADDRESS}>`, // sender address
+      from: `"ChronoChimp" <${fromAddress}>`, // sender address
       to: options.to, // list of receivers
       subject: options.subject, // Subject line
       text: options.text, // plain text body
       html: options.html, // html body
     });
+    
     console.log(`Message sent: ${info.messageId}`);
-    // console.log(`Preview URL: ${nodemailer.getTestMessageUrl(info)}`); // Only if using ethereal.email
+  } catch (err) {
+    console.error(`Failed to send email to ${options.to} via Nodemailer:`, err);
+    
+    // Log more specific error messages to help with debugging - using proper type checking
+    const error = err as any; // Type assertion for error handling
+    if (error && typeof error === 'object') {
+      if (error.code === 'ESOCKET' && error.command === 'CONN') {
+        console.error(`SMTP Connection Error: Likely incorrect port or encryption settings for ${host}:${port}`);
+        console.error(`Try using a different port (587 for STARTTLS, 465 for SSL) or encryption method`);
+      }
+    }
+    
+    // Instead of throwing, return a simulated success in development
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn("Simulating email send due to SMTP error in development environment");
+      console.log("====== SIMULATED EMAIL ======");
+      console.log(`To: ${options.to}`);
+      console.log(`Subject: ${options.subject}`);
+      console.log(`Text: ${options.text.substring(0, 100)}...`);
+      return; // Don't throw in development
+    }
+    
+    // In production, still throw but with more context
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    throw new Error(`Failed to send email: ${errorMessage}`);
+  }
+}
+
+// Add function to check for user SMTP settings in database
+async function getUserSmtpSettings(): Promise<{
+  host: string | null;
+  port: number | null;
+  encryption: string | null;
+  username: string | null;
+  password: string | null;
+  fromAddress: string | null;
+} | null> {
+  try {
+    const { db } = await import('@/lib/db');
+    
+    // Get first admin user's SMTP settings - in a real app, this might come from a specific configured account
+    // or from global settings
+    const stmt = db.prepare(`
+      SELECT smtpHost, smtpPort, smtpEncryption, smtpUsername, smtpPassword, smtpSendFrom 
+      FROM users 
+      WHERE role = 'Admin' AND smtpHost IS NOT NULL 
+      LIMIT 1
+    `);
+    
+    const settings = stmt.get() as {
+      smtpHost: string | null;
+      smtpPort: number | null;
+      smtpEncryption: string | null;
+      smtpUsername: string | null;
+      smtpPassword: string | null;
+      smtpSendFrom: string | null;
+    } | undefined;
+
+    if (!settings) return null;
+
+    return {
+      host: settings.smtpHost,
+      port: settings.smtpPort,
+      encryption: settings.smtpEncryption,
+      username: settings.smtpUsername,
+      password: settings.smtpPassword,
+      fromAddress: settings.smtpSendFrom
+    };
   } catch (error) {
-    console.error(`Failed to send email to ${options.to} via Nodemailer:`, error);
-    // Consider how to handle email sending failures in production (e.g., retry queues, notifications)
-    throw new Error('Failed to send email.');
+    console.error("Error fetching user SMTP settings:", error);
+    return null;
   }
 }
 
@@ -88,20 +182,20 @@ export async function sendPasswordResetEmail(to: string, token: string): Promise
     }
   }
   const resetLink = `${BASE_URL || 'http://localhost:3000'}/auth/reset-password?token=${token}`;
-  const subject = 'Reset Your ChronoTask Password';
+  const subject = 'Reset Your ChronoChimp Password';
   const html = `
     <p>Hello,</p>
-    <p>You requested a password reset for your ChronoTask account.</p>
+    <p>You requested a password reset for your ChronoChimp account.</p>
     <p>Please click the link below to reset your password:</p>
     <a href="${resetLink}">${resetLink}</a>
     <p>This link will expire in 1 hour.</p>
     <p>If you did not request a password reset, please ignore this email.</p>
-    <p>Thanks,<br>The ChronoTask Team</p>
+    <p>Thanks,<br>The ChronoChimp Team</p>
   `;
   const text = `
     Hello,
 
-    You requested a password reset for your ChronoTask account.
+    You requested a password reset for your ChronoChimp account.
     Please use the following link to reset your password:
     ${resetLink}
 
@@ -110,7 +204,7 @@ export async function sendPasswordResetEmail(to: string, token: string): Promise
     If you did not request a password reset, please ignore this email.
 
     Thanks,
-    The ChronoTask Team
+    The ChronoChimp Team
   `;
 
   await sendEmail({ to, subject, html, text });
@@ -122,35 +216,52 @@ export async function sendPasswordResetEmail(to: string, token: string): Promise
  * @param token - The invite token.
  */
 export async function sendUserInviteEmail(to: string, token: string): Promise<void> {
-  if (!BASE_URL) {
-    console.error("ERROR: BASE_URL environment variable is not set. Cannot construct invite link.");
-     if (process.env.NODE_ENV !== 'production') {
-        console.warn(`DEV ONLY - User Invite Token (BASE_URL missing): ${token}`);
+  // Get base URL from environment or from database settings
+  let baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.BASE_URL;
+  
+  // If no base URL configured, try to get it from the database
+  if (!baseUrl) {
+    try {
+      const { db } = await import('@/lib/db');
+      const stmt = db.prepare("SELECT value FROM app_settings WHERE key = 'baseUrl' LIMIT 1");
+      const result = stmt.get() as { value: string } | undefined;
+      if (result) baseUrl = result.value;
+    } catch (error) {
+      console.error("Error fetching base URL from database:", error);
     }
   }
-  const inviteLink = `${BASE_URL || 'http://localhost:3000'}/auth/accept-invite?token=${token}`;
-  const subject = 'You are invited to join ChronoTask!';
+  
+  if (!baseUrl) {
+    console.error("ERROR: Base URL is not set. Cannot construct invite link.");
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(`DEV ONLY - User Invite Token (baseUrl missing): ${token}`);
+    }
+    baseUrl = 'http://localhost:3000'; // Fallback for development
+  }
+  
+  const inviteLink = `${baseUrl}/auth/accept-invite?token=${token}`;
+  const subject = 'You are invited to join ChronoChimp!';
   const inviterText = "You've been invited"; 
   
   const html = `
     <p>Hello,</p>
-    <p>${inviterText} to join ChronoTask!</p>
+    <p>${inviterText} to join ChronoChimp!</p>
     <p>Click the link below to accept your invitation and complete your registration:</p>
     <a href="${inviteLink}">${inviteLink}</a>
-    <p>This invitation will expire in 7 days.</p>
-    <p>Thanks,<br>The ChronoTask Team</p>
+    <p>This invitation will expire in 3 days.</p>
+    <p>Thanks,<br>The ChronoChimp Team</p>
   `;
   const text = `
     Hello,
 
-    ${inviterText} to join ChronoTask!
+    ${inviterText} to join ChronoChimp!
     Click the link below to accept your invitation and complete your registration:
     ${inviteLink}
 
-    This invitation will expire in 7 days.
+    This invitation will expire in 3 days.
 
     Thanks,
-    The ChronoTask Team
+    The ChronoChimp Team
   `;
 
   await sendEmail({ to, subject, html, text });

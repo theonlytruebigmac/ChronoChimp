@@ -9,7 +9,7 @@ export default function RegisterPage() {
     <Card className="w-full max-w-md shadow-xl">
       <CardHeader className="text-center">
         <CardTitle className="text-2xl font-bold">Create an Account</CardTitle>
-        <CardDescription>Join ChronoTask to manage your tasks effectively.</CardDescription>
+        <CardDescription>Join ChronoChimp to manage your tasks effectively.</CardDescription>
       </CardHeader>
       <CardContent>
         <RegisterForm />

@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from 'react';
@@ -302,9 +301,9 @@ export function TaskItem({ task, onToggleSubtaskCompletion, onLogTime, onDeleteT
                   <Square className="h-4 w-4" />
                 </Button>
               )}
-              <Link href={`/tasks/${task.id}`} passHref legacyBehavior>
-                <Button asChild variant="ghost" size="icon" aria-label="Edit task" className="h-8 w-8">
-                  <a><Edit2 className="h-4 w-4 text-blue-500" /></a>
+              <Link href={`/tasks/${task.id}`}>
+                <Button variant="ghost" size="icon" aria-label="Edit task" className="h-8 w-8">
+                  <Edit2 className="h-4 w-4 text-blue-500" />
                 </Button>
               </Link>
               <AlertDialog>
@@ -430,7 +429,9 @@ export function TaskItem({ task, onToggleSubtaskCompletion, onLogTime, onDeleteT
                                   <span className="font-medium">
                                     {formatDateSafe(log.startTime)} - {formatDateSafe(log.endTime)}
                                   </span>
-                                  <Badge variant="outline" size="sm" className="font-mono">{formatDuration(calculateDurationInSeconds(log.startTime, log.endTime))}</Badge>
+                                  <Badge variant="outline" className="font-mono text-xs py-0.5 px-1.5">
+                                    {formatDuration(calculateDurationInSeconds(log.startTime, log.endTime))}
+                                  </Badge>
                                 </div>
                                 {log.notes && <p className="italic mt-0.5 text-xs"> Notes: {log.notes}</p>}
                             </div>

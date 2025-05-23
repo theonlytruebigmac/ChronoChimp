@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from 'react';
@@ -13,16 +12,26 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchAdminUsers, deleteAdminUser, inviteAdminUser, type UserRole as ApiUserRole } from '@/lib/api/users';
+import { 
+  fetchAdminUsers, 
+  deleteAdminUser, 
+  inviteAdminUser, 
+  fetchPendingInvites, 
+  deleteInvite, 
+  resendInvite, 
+  type InvitedUser,
+  type AdminDisplayUser,
+  isInvitedUser
+} from '@/lib/api/users';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle as InviteDialogTitle, DialogDescription as InviteDialogDescription, DialogFooter as InviteDialogFooter } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
-export type UserRole = ApiUserRole; // Use the imported role type
+export type UserRole = "Admin" | "Editor" | "Viewer";
 
 export interface MockUser {
   id: string;
@@ -50,6 +59,12 @@ export default function AdminPage() {
     queryFn: fetchAdminUsers,
   });
 
+  // Add new state for invited users
+  const { data: invitedUsers = [], isLoading: isLoadingInvites } = useQuery<InvitedUser[], Error>({
+    queryKey: ['adminInvites'],
+    queryFn: fetchPendingInvites,
+  });
+
   const deleteUserMutation = useMutation({
     mutationFn: deleteAdminUser,
     onSuccess: (data, userId) => {
@@ -75,11 +90,49 @@ export default function AdminPage() {
     }
   });
 
+  // Add mutations for invite actions
+  const deleteInviteMutation = useMutation({
+    mutationFn: deleteInvite,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['adminInvites'] });
+      toast({ title: "Invite Deleted", description: data.message });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error Deleting Invite", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const resendInviteMutation = useMutation({
+    mutationFn: resendInvite,
+    onSuccess: (data) => {
+      toast({ title: "Invite Resent", description: data.message });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error Resending Invite", description: err.message, variant: "destructive" });
+    },
+  });
+
   const handleDeleteUser = (userId: string) => {
     deleteUserMutation.mutate(userId);
   };
 
-  const handleInviteUser = () => {
+  // Add a function to check SMTP configuration before sending invites
+  const checkSmtpConfigured = async () => {
+    try {
+      const response = await fetch('/api/admin/smtp-status');
+      if (response.ok) {
+        const data = await response.json();
+        return data.configured;
+      }
+      return false;
+    } catch (error) {
+      console.error("Error checking SMTP status", error);
+      return false;
+    }
+  };
+
+  // Change the "warning" variant to a supported variant type
+  const handleInviteUser = async () => {
     if (!inviteEmail) {
       toast({ title: "Email Required", description: "Please enter an email address for the invite.", variant: "destructive"});
       return;
@@ -89,7 +142,26 @@ export default function AdminPage() {
       toast({ title: "Invalid Email", description: "Please enter a valid email address.", variant: "destructive"});
       return;
     }
+
+    // Check SMTP configuration
+    const isSmtpConfigured = await checkSmtpConfigured();
+    if (!isSmtpConfigured) {
+      toast({ 
+        title: "⚠️ SMTP Not Configured", 
+        description: "Email invites require SMTP configuration. The invite will be created but no email will be sent.",
+        variant: "default"  // Changed from "warning" to "default"
+      });
+    }
+    
     inviteUserMutation.mutate({ email: inviteEmail, role: inviteRole });
+  };
+
+  const handleDeleteInvite = (inviteId: string) => {
+    deleteInviteMutation.mutate(inviteId);
+  };
+
+  const handleResendInvite = (inviteId: string) => {
+    resendInviteMutation.mutate(inviteId);
   };
 
   const formatDate = (dateString: string) => {
@@ -140,7 +212,8 @@ export default function AdminPage() {
   };
 
 
-  if (isLoading) {
+  // Update loading state
+  if (isLoading || isLoadingInvites) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -198,6 +271,25 @@ export default function AdminPage() {
     );
   }
 
+  // Update how we combine users and invites with proper type safety
+  const allUsers: AdminDisplayUser[] = [
+    // For regular users, explicitly set isPendingInvite to false
+    ...users.map(user => ({ 
+      ...user, 
+      isPendingInvite: false as const // Use const assertion to ensure it's exactly false
+    })), 
+    
+    // For invited users, ensure they have all required properties
+    ...invitedUsers.map(invite => ({
+      ...invite,
+      name: invite.email, // Use email as name
+      joinedDate: invite.createdAt,
+      isPendingInvite: true as const, // Use const assertion to ensure it's exactly true
+      avatarUrl: null, // Explicitly null for invited users
+      isInvite: true as const // Ensure this is true
+    }))
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -207,7 +299,7 @@ export default function AdminPage() {
         </h1>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {summaryCardsConfig.map((card) => (
           <Card key={card.title} className="shadow-md hover:shadow-lg transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -224,6 +316,21 @@ export default function AdminPage() {
             </CardContent>
           </Card>
         ))}
+        {/* Add new fourth card for pending invites */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending Invites</CardTitle>
+            <Mail className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-4xl font-bold">
+              {isLoadingInvites ? <Skeleton className="h-8 w-16" /> : invitedUsers.length}
+            </div>
+            <p className="text-xs text-muted-foreground pt-1">
+              {invitedUsers.length === 1 ? 'User' : 'Users'} waiting to accept
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       <Card className="shadow-md">
@@ -312,31 +419,68 @@ export default function AdminPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((user) => (
-                <TableRow key={user.id}>
+              {allUsers.map((user) => (
+                <TableRow key={user.id} className={isInvitedUser(user) ? "bg-muted/50" : ""}>
                   <TableCell className="hidden sm:table-cell">
                     <Avatar className="h-10 w-10">
-                      <AvatarImage src={user.avatarUrl || undefined} alt={user.name} data-ai-hint="avatar person" />
-                      <AvatarFallback>{getAvatarFallbackInitials(user.name)}</AvatarFallback>
+                      {isInvitedUser(user) ? (
+                        <Mail className="h-6 w-6 text-muted-foreground" />
+                      ) : (
+                        <>
+                          <AvatarImage src={user.avatarUrl || undefined} alt={user.name} data-ai-hint="avatar person" />
+                          <AvatarFallback>{getAvatarFallbackInitials(user.name)}</AvatarFallback>
+                        </>
+                      )}
                     </Avatar>
                   </TableCell>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8 sm:hidden">
-                           <AvatarImage src={user.avatarUrl || undefined} alt={user.name} data-ai-hint="avatar person" />
-                           <AvatarFallback>{getAvatarFallbackInitials(user.name)}</AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0"> {/* Added min-w-0 for better truncation */}
-                            <p className="truncate font-semibold">{user.name}</p>
-                            <div className="text-xs text-muted-foreground md:hidden truncate">{user.email}</div>
-                        </div>
+                      <Avatar className="h-8 w-8 sm:hidden">
+                        {user.isPendingInvite ? (
+                          <Mail className="h-5 w-5 text-muted-foreground" />
+                        ) : (
+                          <>
+                            <AvatarImage src={user.avatarUrl || undefined} alt={user.name} data-ai-hint="avatar person" />
+                            <AvatarFallback>{getAvatarFallbackInitials(user.name)}</AvatarFallback>
+                          </>
+                        )}
+                      </Avatar>
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold">
+                          {user.isPendingInvite ? (
+                            <span className="flex items-center">
+                              <span className="truncate">{user.email}</span>
+                              <Badge variant="outline" className="ml-2 text-xs">Invited</Badge>
+                            </span>
+                          ) : (
+                            user.name
+                          )}
+                        </p>
+                        {!user.isPendingInvite && (
+                          <div className="text-xs text-muted-foreground md:hidden truncate">{user.email}</div>
+                        )}
+                        {user.isPendingInvite && (
+                          <div className="text-xs text-muted-foreground">Expires: {formatDate((user as any).expiresAt)}</div>
+                        )}
+                      </div>
                     </div>
                   </TableCell>
-                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{user.email}</TableCell>
+                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                    {user.isPendingInvite ? (
+                      <span className="flex items-center">
+                        {user.email}
+                        <Badge variant="outline" className="ml-2 text-xs">Pending</Badge>
+                      </span>
+                    ) : (
+                      user.email
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Badge variant={getRoleBadgeVariant(user.role)}>{user.role}</Badge>
                   </TableCell>
-                  <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">{formatDate(user.joinedDate)}</TableCell>
+                  <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
+                    {formatDate(user.joinedDate)}
+                  </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -346,40 +490,78 @@ export default function AdminPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/admin/users/${user.id}/edit`}>
-                            <FilePenLine className="mr-2 h-4 w-4" />
-                            Edit
-                          </Link>
-                        </DropdownMenuItem>
-                         <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <DropdownMenuItem
-                                onSelect={(e) => e.preventDefault()}
-                                className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" /> Delete
-                              </DropdownMenuItem>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This action cannot be undone. This will permanently delete the user "{user.name}".
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleDeleteUser(user.id)}
-                                  className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                                  disabled={deleteUserMutation.isPending && deleteUserMutation.variables === user.id}
+                        {isInvitedUser(user) ? (
+                          <>
+                            <DropdownMenuItem onClick={() => handleResendInvite(user.id)}>
+                              <Mail className="mr-2 h-4 w-4" />
+                              Resend Invite
+                            </DropdownMenuItem>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <DropdownMenuItem
+                                  onSelect={(e) => e.preventDefault()}
+                                  className="text-destructive focus:text-destructive focus:bg-destructive/10"
                                 >
-                                  {deleteUserMutation.isPending && deleteUserMutation.variables === user.id ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...</> : "Delete"}
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                                  <Trash2 className="mr-2 h-4 w-4" /> Delete Invite
+                                </DropdownMenuItem>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This will delete the invitation sent to "{user.email}".
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleDeleteInvite(user.id)}
+                                    className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                                  >
+                                    Delete Invite
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </>
+                        ) : (
+                          <>
+                            <DropdownMenuItem asChild>
+                              <Link href={`/admin/users/${user.id}/edit`}>
+                                <FilePenLine className="mr-2 h-4 w-4" />
+                                Edit
+                              </Link>
+                            </DropdownMenuItem>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <DropdownMenuItem
+                                  onSelect={(e) => e.preventDefault()}
+                                  className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                </DropdownMenuItem>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This action cannot be undone. This will permanently delete the user "{user.name}".
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleDeleteUser(user.id)}
+                                    className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                                    disabled={deleteUserMutation.isPending && deleteUserMutation.variables === user.id}
+                                  >
+                                    {deleteUserMutation.isPending && deleteUserMutation.variables === user.id ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...</> : "Delete"}
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -387,9 +569,9 @@ export default function AdminPage() {
               ))}
             </TableBody>
           </Table>
-          {users.length === 0 && !isLoading && (
+          {allUsers.length === 0 && !isLoading && !isLoadingInvites && (
             <div className="mt-4 p-6 border border-dashed rounded-lg text-center text-muted-foreground">
-              No users found. Click "Add New User" or "Invite User" to get started.
+              No users or invites found. Click "Add New User" or "Invite User" to get started.
             </div>
           )}
         </CardContent>

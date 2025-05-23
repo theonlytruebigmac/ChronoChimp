@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from 'next/link';
@@ -39,50 +38,45 @@ export function AppSidebar() {
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
             <path d="M12.5 8H11v6l4.75 2.85.75-1.23-4-2.37z" opacity=".7"/>
           </svg>
-          <span className="group-data-[collapsible=icon]:hidden">ChronoTask</span>
+          <span className="group-data-[collapsible=icon]:hidden">ChronoChimp</span>
         </Link>
       </SidebarHeader>
       <SidebarContent className="flex flex-col justify-between p-2">
-        <SidebarMenu>
+        <SidebarMenu className="space-y-1">
           {mainNavItems.map((item) => (
-            <SidebarMenuItem key={item.href}>
-              <Link href={item.href} legacyBehavior passHref>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))}
-                  tooltip={{ children: item.label }}
-                  className="justify-start"
-                >
-                  <a>
-                    <item.icon className="h-5 w-5" />
-                    <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
-                  </a>
-                </SidebarMenuButton>
-              </Link>
+            <SidebarMenuItem key={item.href} className="my-1">
+              <SidebarMenuButton
+                asChild
+                isActive={pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))}
+                className="py-3 px-3 h-auto"
+              >
+                <Link href={item.href} className="flex w-full items-center">
+                  <item.icon className="h-5 w-5 flex-shrink-0" />
+                  <span className="ml-3 text-base font-medium">{item.label}</span>
+                </Link>
+              </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
         
         <SidebarFooter className="mt-auto p-2">
-          <SidebarSeparator className="my-2" />
-          <SidebarMenu>
+          <SidebarSeparator className="my-3" />
+          <SidebarMenu className="space-y-1">
             {bottomNavItems.map((item) => (
-              <SidebarMenuItem key={item.href}>
-                <Link href={item.href} legacyBehavior passHref>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname.startsWith(item.href)}
-                    tooltip={{ 
-                      children: item.label
-                    }}
-                    className="justify-start"
-                  >
-                    <a>
-                      <item.icon className="h-5 w-5" />
-                      <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
-                    </a>
-                  </SidebarMenuButton>
-                </Link>
+              <SidebarMenuItem key={item.href} className="my-1">
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname.startsWith(item.href)}
+                  tooltip={{ 
+                    children: item.label
+                  }}
+                  className="justify-start py-3 px-3 h-auto"
+                >
+                  <Link href={item.href} className="flex w-full items-center">
+                    <item.icon className="h-5 w-5 flex-shrink-0" />
+                    <span className="ml-3 text-base font-medium group-data-[collapsible=icon]:hidden">{item.label}</span>
+                  </Link>
+                </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
           </SidebarMenu>

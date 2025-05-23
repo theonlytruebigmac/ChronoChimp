@@ -44,7 +44,9 @@ export async function DELETE(request: Request, { params }: Params) {
   }
 
   try {
-    const { apiKeyId } = params;
+    // Fix: Use the apiKeyId directly from params without destructuring
+    const apiKeyId = params.apiKeyId;
+    
     // Ensure the API key belongs to the authenticated user before deleting
     const stmt = db.prepare('DELETE FROM api_keys WHERE id = ? AND userId = ?');
     const info = stmt.run(apiKeyId, userId);
