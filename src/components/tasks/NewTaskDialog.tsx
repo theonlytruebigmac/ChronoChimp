@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -10,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Plus, Save, X, Trash2, ListChecks } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useSession } from '../../hooks/use-session'; // Adjust the path as needed
 import type { Task, Subtask, TaskStatus } from './TaskItem'; // Assuming TaskItem exports these
 import { formatInputDateToISO } from '@/lib/utils'; // Updated import path
 
@@ -26,6 +26,7 @@ interface NewTaskDialogProps {
 
 export function NewTaskDialog({ isOpen, onClose, onAddTask }: NewTaskDialogProps) {
   const { toast } = useToast();
+  const { session } = useSession(); // Get user session
 
   const getInitialState = () => ({
     title: '',
@@ -89,7 +90,20 @@ export function NewTaskDialog({ isOpen, onClose, onAddTask }: NewTaskDialogProps
       return;
     }
 
+    // Get the current user ID from the session
+    const currentUserId = session?.userId || '';
+    
+    if (!currentUserId) {
+      toast({ 
+        title: "Authentication Error", 
+        description: "Unable to identify current user. Please try again or sign in again.", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
     const newTaskData: Omit<Task, 'id' | 'timeLogs' | 'createdAt' | 'updatedAt'> = {
+      userId: currentUserId,
       title: formData.title,
       description: formData.description || undefined,
       status: formData.status,

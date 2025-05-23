@@ -1,14 +1,9 @@
-
 import { NextResponse, type NextRequest } from 'next/server';
 import { db, safeJSONParse } from '@/lib/db';
-import type { Task, Subtask, TimeLog, TaskStatus } from '@/components/tasks/TaskItem';
-import { z } from 'zod';
 import { cookies } from 'next/headers';
 import { jwtVerify } from 'jose';
-
-interface Params {
-  params: { taskId: string };
-}
+import type { Task, Subtask, TimeLog } from '@/components/tasks/TaskItem';
+import { z } from 'zod';
 
 const JWT_SECRET_STRING = process.env.JWT_SECRET;
 
@@ -17,7 +12,9 @@ async function getAuthUserId(request: NextRequest): Promise<string | null> {
     console.error("CRITICAL: JWT_SECRET is not defined in /api/tasks/[taskId].");
     return null; 
   }
-  const token = cookies().get('session_token')?.value;
+  // Fix: Await cookies() before using get()
+  const cookieStore = await cookies();
+  const token = cookieStore.get('session_token')?.value;
   if (!token) {
     return null; 
   }
@@ -58,13 +55,26 @@ const UpdateTaskSchema = z.object({
   // userId is not updatable by client directly
 }).partial();
 
-export async function GET(request: NextRequest, { params }: Params) {
-  const authUserId = await getAuthUserId(request);
-  if (!JWT_SECRET_STRING) return NextResponse.json({ error: 'Server configuration error.' }, { status: 500 });
-  if (!authUserId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+// Update Params type to reflect that context.params is a Promise
+type RouteContext = {
+  params: Promise<{ taskId: string }>;
+};
+
+export async function GET(request: NextRequest, context: RouteContext) {
+  const userId = await getAuthUserId(request);
+  
+  if (!JWT_SECRET_STRING) {
+    return NextResponse.json({ error: 'Server configuration error.' }, { status: 500 });
+  }
+  
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
   try {
-    const { taskId } = params;
+    // Properly await context.params before accessing its properties
+    const routeParams = await context.params;
+    const taskId = routeParams.taskId;
     const stmt = db.prepare('SELECT * FROM tasks WHERE id = ?');
     const dbTask = stmt.get(taskId) as any;
 
@@ -72,7 +82,7 @@ export async function GET(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 });
     }
 
-    if (dbTask.userId !== authUserId) {
+    if (dbTask.userId !== userId) {
       return NextResponse.json({ error: 'Forbidden: You do not own this task' }, { status: 403 });
     }
 
@@ -85,18 +95,21 @@ export async function GET(request: NextRequest, { params }: Params) {
     
     return NextResponse.json(task);
   } catch (error) {
-    console.error(`Failed to fetch task ${params.taskId} for user ${authUserId}:`, error);
+    console.error(`Failed to fetch task:`, error);
     return NextResponse.json({ error: 'Failed to fetch task' }, { status: 500 });
   }
 }
 
-export async function PUT(request: NextRequest, { params }: Params) {
+export async function PUT(request: NextRequest, context: RouteContext) {
   const authUserId = await getAuthUserId(request);
   if (!JWT_SECRET_STRING) return NextResponse.json({ error: 'Server configuration error.' }, { status: 500 });
   if (!authUserId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   
   try {
-    const { taskId } = params;
+    // Properly await context.params before accessing its properties
+    const routeParams = await context.params;
+    const taskId = routeParams.taskId;
+    
     const body = await request.json();
 
     const validationResult = UpdateTaskSchema.safeParse(body);
@@ -160,19 +173,21 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
     return NextResponse.json(updatedTask);
   } catch (error) {
-    console.error(`Failed to update task ${params.taskId} for user ${authUserId}:`, error);
+    console.error(`Failed to update task for user ${authUserId}:`, error);
     return NextResponse.json({ error: 'Failed to update task' }, { status: 500 });
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: Params) {
+export async function DELETE(request: NextRequest, context: RouteContext) {
   const authUserId = await getAuthUserId(request);
   if (!JWT_SECRET_STRING) return NextResponse.json({ error: 'Server configuration error.' }, { status: 500 });
   if (!authUserId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    const { taskId } = params;
-
+    // Properly await context.params before accessing its properties
+    const routeParams = await context.params;
+    const taskId = routeParams.taskId;
+    
     const selectStmt = db.prepare('SELECT userId FROM tasks WHERE id = ?');
     const taskToDelete = selectStmt.get(taskId) as { userId: string } | undefined;
 
@@ -194,7 +209,7 @@ export async function DELETE(request: NextRequest, { params }: Params) {
     
     return NextResponse.json({ message: `Task ${taskId} deleted successfully` }, { status: 200 });
   } catch (error) {
-    console.error(`Failed to delete task ${params.taskId} for user ${authUserId}:`, error);
+    console.error(`Failed to delete task for user ${authUserId}:`, error);
     return NextResponse.json({ error: 'Failed to delete task' }, { status: 500 });
   }
 }

@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState } from 'react';
@@ -37,6 +36,18 @@ const getStatusBadgeVariant = (s: TaskStatus): React.ComponentProps<typeof Badge
   }
 };
 
+// Update the helper function to use available badge variants
+const getPriorityBadgeVariant = (priority: string | undefined): React.ComponentProps<typeof Badge>['variant'] => {
+  if (!priority) return 'outline';
+  
+  switch (priority.toLowerCase()) {
+    case 'high': return 'destructive';
+    case 'medium': return 'secondary'; // Changed from 'warning'
+    case 'low': return 'default';      // Changed from 'success'
+    default: return 'outline';
+  }
+};
+
 interface KanbanTaskCardProps {
   task: Task;
   isDragging?: boolean;
@@ -52,6 +63,18 @@ function KanbanTaskCard({ task, isDragging }: KanbanTaskCardProps) {
     transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
     zIndex: isCurrentlyDragging || isDragging ? 100 : undefined,
   } : undefined;
+
+  // Helper function for priority colors
+  const getPriorityColor = (priority: string | undefined): string => {
+    if (!priority) return '';
+    
+    switch (priority.toLowerCase()) {
+      case 'high': return 'bg-red-500 hover:bg-red-600 text-white';
+      case 'medium': return 'bg-orange-500 hover:bg-orange-600 text-white';
+      case 'low': return 'bg-green-500 hover:bg-green-600 text-white';
+      default: return '';
+    }
+  };
 
   return (
     <Link
@@ -73,17 +96,32 @@ function KanbanTaskCard({ task, isDragging }: KanbanTaskCardProps) {
         )}
       >
         <CardContent className="p-3 text-sm">
-          <div className="flex justify-between items-start mb-1">
-            <p className="font-medium flex-grow pr-2">{task.title}</p>
-            <Badge variant={getStatusBadgeVariant(task.status)} className="text-xs flex-shrink-0 whitespace-nowrap">
-              {task.status}
-            </Badge>
+          <div className="mb-1">
+            <p className="font-medium pr-2">{task.title}</p>
           </div>
-          {task.priority && (
-            <Badge variant="outline" className="mt-1 text-xs capitalize">
-              {task.priority}
-            </Badge>
+          {task.description && (
+            <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
+              {task.description}
+            </p>
           )}
+          <div className="flex flex-wrap gap-2 items-center justify-end">
+            {task.tags && task.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {task.tags.map((tag, index) => (
+                  <Badge key={index} variant="secondary" className="text-xs">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            )}
+            {task.priority && (
+              <Badge 
+                className={cn("text-xs capitalize", getPriorityColor(task.priority))}
+              >
+                {task.priority}
+              </Badge>
+            )}
+          </div>
         </CardContent>
       </Card>
     </Link>

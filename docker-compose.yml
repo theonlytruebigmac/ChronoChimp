@@ -16,12 +16,6 @@ services:
       - "9004:9004"
     environment:
       NODE_ENV: development
-      SMTP_PORT: ${SMTP_PORT}
-      SMTP_HOST: ${SMTP_HOST}
-      SMTP_USER: ${SMTP_USER}
-      SMTP_PASS: ${SMTP_PASS}
-      SMTP_SECURE: ${SMTP_SECURE}
-      EMAIL_FROM: ${EMAIL_FROM}
       BASE_URL: ${BASE_URL}
       DATABASE_ENCRYPTION_KEY: ${DATABASE_ENCRYPTION_KEY}
       JWT_SECRET: ${JWT_SECRET}
@@ -42,12 +36,6 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      SMTP_PORT: ${SMTP_PORT}
-      SMTP_HOST: ${SMTP_HOST}
-      SMTP_USER: ${SMTP_USER}
-      SMTP_PASS: ${SMTP_PASS}
-      SMTP_SECURE: ${SMTP_SECURE}
-      EMAIL_FROM: ${EMAIL_FROM}
       BASE_URL: ${BASE_URL}
       DATABASE_ENCRYPTION_KEY: ${DATABASE_ENCRYPTION_KEY}
       JWT_SECRET: ${JWT_SECRET}
@@ -55,9 +43,7 @@ services:
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME}
       JWT_EXPIRATION: ${JWT_EXPIRATION}
       NEXT_PUBLIC_ALLOW_HTTP_COOKIES: ${NEXT_PUBLIC_ALLOW_HTTP_COOKIES}
-
-    env_file:
-      - .env
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
 
 volumes:
   chronotask_data_dev:

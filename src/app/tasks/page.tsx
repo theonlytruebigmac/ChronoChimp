@@ -87,7 +87,7 @@ export default function TasksPage() {
   const handleAddTask = (newTaskData: Omit<Task, 'id' | 'timeLogs' | 'createdAt' | 'updatedAt'>) => {
     const taskToCreate: Omit<Task, 'id' | 'createdAt' | 'updatedAt'> = {
         ...newTaskData,
-        timeLogs: newTaskData.timeLogs || [], 
+        timeLogs: [], 
         subtasks: newTaskData.subtasks || [],
         tags: newTaskData.tags || [],
         // Ensure default status if not provided by dialog, though dialog should provide it
