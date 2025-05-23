@@ -37,6 +37,7 @@ export function AppSidebar() {
           <span className="group-data-[collapsible=icon]:hidden text-3xl">ChronoChimp</span>
         </Link>
       </SidebarHeader>
+      <SidebarSeparator className="my-3" />
       <SidebarContent className="flex flex-col justify-between p-2">
         <SidebarMenu className="space-y-1">
           {mainNavItems.map((item) => (

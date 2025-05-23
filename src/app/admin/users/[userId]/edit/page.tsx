@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
@@ -61,11 +60,15 @@ export default function UserEditPage() {
       setProfilePreview("https://placehold.co/100x100.png");
       setSelectedFileName(null);
     } else if (fetchedUser) {
+      // Ensure we're using the fetched user's role
+      const userRole = fetchedUser.role || 'Viewer';
+      console.log("Setting user role:", userRole); // For debugging
+      
       setFormData({
         id: fetchedUser.id,
         name: fetchedUser.name,
         email: fetchedUser.email,
-        role: fetchedUser.role,
+        role: userRole,
         avatarUrl: fetchedUser.avatarUrl || '',
         isTwoFactorEnabled: !!fetchedUser.isTwoFactorEnabled,
         joinedDate: fetchedUser.joinedDate,
@@ -75,6 +78,26 @@ export default function UserEditPage() {
       setSelectedFileName(null);
     }
   }, [fetchedUser, isNewUserMode]);
+
+  // Override the initial state with the selected user's role right when we have it
+  useEffect(() => {
+    if (fetchedUser?.role) {
+      // Force direct update of role - this should help ensure it's set properly
+      console.log("Directly updating role to:", fetchedUser.role);
+      setFormData(prev => ({
+        ...prev,
+        role: fetchedUser.role,
+      }));
+    }
+  }, [fetchedUser?.role]);
+
+  // Clean up console logs in production
+  useEffect(() => {
+    if (fetchedUser) {
+      console.log("Fetched user data:", fetchedUser);
+      console.log("Current formData:", formData);
+    }
+  }, [fetchedUser, formData]);
 
   const updateUserMutation = useMutation({
     mutationFn: (userData: UserUpdateData) => updateAdminUser(userId, userData),
@@ -356,12 +379,26 @@ export default function UserEditPage() {
 
             <div className="space-y-1.5">
               <Label htmlFor="role" className="text-base">Role</Label>
-              <Select name="role" value={formData.role} onValueChange={handleRoleChange}>
+              {/* Add a text placeholder just for debugging */}
+              <div className="text-xs text-muted-foreground mb-1">
+                Current role: {formData.role || 'Unknown'}, Fetched role: {fetchedUser?.role || 'Unknown'}
+              </div>
+              <Select 
+                key={`role-select-${fetchedUser?.id || 'new'}-${formData.role || 'default'}`}
+                name="role" 
+                value={formData.role} 
+                defaultValue={formData.role}
+                onValueChange={handleRoleChange}
+              >
                 <SelectTrigger id="role" className="text-base">
-                  <SelectValue placeholder="Select role" />
+                  <SelectValue>{formData.role}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {userRoles.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                  {userRoles.map(r => (
+                    <SelectItem key={r} value={r}>
+                      {r} {r === formData.role ? '(current)' : ''}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

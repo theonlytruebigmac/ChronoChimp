@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { jwtVerify, type JWTPayload } from 'jose'; // Ensure JWTPayload is imported if used
 import type { UserRole } from '@/app/admin/page';
 import type { NextRequest } from 'next/server';
+import { db } from '@/lib/db'; // Add this import
 
 const JWT_SECRET_STRING = process.env.JWT_SECRET;
 let JWT_SECRET_UINT8ARRAY: Uint8Array;
@@ -39,40 +40,33 @@ export async function GET(request: NextRequest) {
     const token = cookieStore.get('session_token')?.value;
 
     if (!token) {
-      return NextResponse.json({ user: null, error: 'No session token found.' }, { status: 401 });
+      return NextResponse.json({ user: null });
     }
 
-    try {
-      const { payload } = await jwtVerify(token, secret);
-
-      // Ensure the payload structure matches SessionUser
-      const sessionUser: SessionUser = {
-        userId: payload.userId as string,
-        email: payload.email as string,
-        name: payload.name as string,
-        role: payload.role as UserRole,
-        avatarUrl: payload.avatarUrl as string | undefined,
-        // Include any other standard JWT fields if necessary, e.g., iat, exp from payload
-        iat: payload.iat,
-        exp: payload.exp,
-      };
-      return NextResponse.json({ user: sessionUser });
-    } catch (error) {
-      // console.warn('Session JWT verification failed:', error); // Keep for debugging if needed
-      // Clear the invalid cookie
-      const response = NextResponse.json({ user: null, error: 'Invalid or expired session token.' }, { status: 401 });
-      
-      // Fix: Also await cookies() here
-      const cookieStore = await cookies();
-      response.cookies.set('session_token', '', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: -1,
-        path: '/',
-        sameSite: 'lax',
-      });
-      return response;
+    // Verify and extract user info from token
+    const { payload } = await jwtVerify(token, secret);
+    
+    // Get fresh user data from database to ensure we have the latest avatarUrl
+    const userId = payload.userId as string;
+    const stmt = db.prepare('SELECT id, name, email, role, avatarUrl FROM users WHERE id = ?');
+    const user = stmt.get(userId) as SessionUser | undefined;
+    
+    if (!user) {
+      // User not found in database (might have been deleted), clear the cookie
+      cookieStore.delete('session_token');
+      return NextResponse.json({ user: null });
     }
+    
+    // Ensure avatarUrl is included correctly - handle data URIs properly
+    if (user.avatarUrl && user.avatarUrl.startsWith('data:')) {
+      // For data URIs, we can pass them directly without modification
+      // No need to add any query parameters for cache busting
+    } else if (user.avatarUrl) {
+      // For regular URLs, we might want to add cache busting
+      user.avatarUrl = user.avatarUrl + (user.avatarUrl.includes('?') ? '&' : '?') + '_t=' + Date.now();
+    }
+    
+    return NextResponse.json({ user });
   } catch (error: any) {
     if (error.message === "JWT_SECRET_NOT_CONFIGURED") {
       // This error is now caught by getJwtSecretKey and handled before this point,

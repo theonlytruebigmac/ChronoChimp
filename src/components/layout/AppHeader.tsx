@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -19,8 +18,6 @@ import { useToast } from '@/hooks/use-toast';
 import type { SessionUser } from '@/app/api/auth/session/route'; 
 import { Skeleton } from '@/components/ui/skeleton'; 
 
-// Removed BYPASS_AUTH_FOR_DEV constant
-
 export function AppHeader() {
   const { toast } = useToast();
   const [currentUser, setCurrentUser] = useState<SessionUser | null>(null);
@@ -30,10 +27,36 @@ export function AppHeader() {
     const fetchSession = async () => {
       setIsLoadingSession(true);
       try {
-        const response = await fetch('/api/auth/session'); 
+        const response = await fetch('/api/auth/session', {
+          // Add cache: 'no-store' to prevent browser caching
+          cache: 'no-store'
+        }); 
         if (response.ok) {
           const data = await response.json();
-          setCurrentUser(data.user); 
+          console.log("Fetched user session:", data.user); 
+          
+          // Check if avatar URL exists and if it's a valid format
+          if (data.user && data.user.avatarUrl) {
+            console.log("Avatar URL length:", data.user.avatarUrl.length);
+            if (data.user.avatarUrl.startsWith('data:image/')) {
+              console.log("Avatar is a data URI");
+            } else {
+              console.log("Avatar is a URL");
+            }
+            
+            // Don't modify the avatarUrl if it's a data URI
+            if (data.user.avatarUrl.startsWith('data:image/')) {
+              setCurrentUser(data.user);
+            } else {
+              // Only add cache busting for regular URLs
+              setCurrentUser({
+                ...data.user,
+                avatarUrl: data.user.avatarUrl + (data.user.avatarUrl.includes('?') ? '&' : '?') + 'v=' + Date.now()
+              });
+            }
+          } else {
+            setCurrentUser(data.user);
+          }
         } else {
           setCurrentUser(null); 
         }
@@ -95,8 +118,35 @@ export function AppHeader() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                 <Avatar className="h-9 w-9">
-                  <AvatarImage src={currentUser.avatarUrl || undefined} alt={currentUser.name || 'User'} data-ai-hint="avatar person" />
-                  <AvatarFallback>{getAvatarFallback(currentUser.name)}</AvatarFallback>
+                  {currentUser?.avatarUrl ? (
+                    <AvatarImage 
+                      src={currentUser.avatarUrl} 
+                      alt={currentUser.name || 'User'} 
+                      data-ai-hint="avatar person"
+                      onLoad={() => console.log("Avatar image loaded successfully")}
+                      onError={(e) => {
+                        console.error("Avatar failed to load:", currentUser.avatarUrl);
+                        // Instead of hiding the image, which might cause layout issues
+                        // Log more information about the error
+                        console.error("Error details:", e);
+                        // Don't hide immediately - try to load a fallback image
+                        try {
+                          const img = e.target as HTMLImageElement;
+                          // Only hide if we can't load a fallback
+                          if (img.src !== "https://placehold.co/100x100.png") {
+                            img.src = "https://placehold.co/100x100.png";
+                          } else {
+                            img.style.display = 'none';
+                          }
+                        } catch (fallbackError) {
+                          console.error("Fallback also failed:", fallbackError);
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }
+                      }} 
+                      style={{ objectFit: 'cover' }}
+                    />
+                  ) : null}
+                  <AvatarFallback>{getAvatarFallback(currentUser?.name)}</AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
