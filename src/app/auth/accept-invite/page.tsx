@@ -1,69 +1,57 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import Link from 'next/link';
-import { UserCheck } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
-export default function AcceptInvitePage() {
+// Create a client component that uses the search params
+function AcceptInviteForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { toast } = useToast();
 
-  const [token, setToken] = useState<string | null>(null);
-  const [email, setEmail] = useState<string>('');
-  const [role, setRole] = useState<string>('');
+  const [token, setToken] = useState<string>('');
   const [name, setName] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
+  const [email, setEmail] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isValid, setIsValid] = useState<boolean>(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
 
   useEffect(() => {
-    const tokenParam = searchParams.get('token');
+    // Safely get token from URL
+    const tokenParam = searchParams?.get('token');
     if (tokenParam) {
       setToken(tokenParam);
-      // Verify token and fetch invite details
-      verifyInviteToken(tokenParam);
+      // Fetch the invite details
+      fetchInviteDetails(tokenParam);
     } else {
+      setInviteError('No invite token provided in the URL. Please check your invite link.');
       setIsLoading(false);
-      toast({
-        title: "Error",
-        description: "Invalid invitation link. Please request a new invitation.",
-        variant: "destructive",
-      });
     }
   }, [searchParams]);
 
-  const verifyInviteToken = async (inviteToken: string) => {
+  const fetchInviteDetails = async (inviteToken: string) => {
     try {
       const response = await fetch(`/api/auth/verify-invite?token=${encodeURIComponent(inviteToken)}`);
       const data = await response.json();
       
-      if (response.ok && data.valid) {
+      if (response.ok) {
         setEmail(data.email);
-        setRole(data.role);
-        setIsValid(true);
+        setIsLoading(false);
       } else {
-        toast({
-          title: "Invalid Invitation",
-          description: data.error || "This invitation is invalid or has expired.",
-          variant: "destructive",
-        });
+        setInviteError(data.error || 'Invalid or expired invite.');
+        setIsLoading(false);
       }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to verify invitation. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
+      console.error('Error fetching invite details:', error);
+      setInviteError('Failed to verify invite. Please try again or contact support.');
       setIsLoading(false);
     }
   };
@@ -73,27 +61,24 @@ export default function AcceptInvitePage() {
     console.log("Form submission started");
     
     if (!token) {
-      toast({ title: "Error", description: "Invalid invitation token", variant: "destructive" });
+      toast({ title: "Error", description: "Invalid invite token", variant: "destructive" });
       return;
     }
-    
-    if (!name.trim()) {
-      toast({ title: "Error", description: "Please enter your name", variant: "destructive" });
+    if (!name || !password || !confirmPassword) {
+      toast({ title: "Error", description: "All fields are required", variant: "destructive" });
       return;
     }
-    
     if (password !== confirmPassword) {
       toast({ title: "Error", description: "Passwords do not match", variant: "destructive" });
       return;
     }
-    
     if (password.length < 6) {
       toast({ title: "Error", description: "Password must be at least 6 characters", variant: "destructive" });
       return;
     }
     
     setIsSubmitting(true);
-    console.log("Submitting to /api/auth/accept-invite with token:", token.substring(0, 8) + "...");
+    console.log("Submitting to /api/auth/complete-invite with token:", token.substring(0, 8) + "...");
     
     try {
       // Make sure correct API endpoint is called
@@ -123,10 +108,10 @@ export default function AcceptInvitePage() {
         });
       }
     } catch (error) {
-      console.error("Error creating account:", error);
+      console.error('Error accepting invite:', error);
       toast({ 
         title: "Error", 
-        description: "An unexpected error occurred while creating your account", 
+        description: "An unexpected error occurred", 
         variant: "destructive" 
       });
     } finally {
@@ -136,51 +121,51 @@ export default function AcceptInvitePage() {
 
   if (isLoading) {
     return (
-      <Card className="w-full">
-        <CardHeader className="text-center">
-          <CardTitle>Verifying invitation...</CardTitle>
-          <CardDescription>Please wait while we verify your invitation.</CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="flex flex-col items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+        <p>Verifying your invite...</p>
+      </div>
     );
   }
 
-  if (!isValid) {
+  if (inviteError) {
     return (
-      <Card className="w-full">
-        <CardHeader className="text-center">
-          <CardTitle className="text-destructive">Invalid Invitation</CardTitle>
-          <CardDescription>This invitation link is invalid or has expired.</CardDescription>
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle>Invite Error</CardTitle>
+          <CardDescription>There was a problem with your invite link.</CardDescription>
         </CardHeader>
-        <CardFooter className="flex justify-center">
-          <Link href="/auth/signin">
-            <Button variant="outline">Go to Sign In</Button>
-          </Link>
+        <CardContent>
+          <p className="text-destructive">{inviteError}</p>
+        </CardContent>
+        <CardFooter>
+          <Button variant="outline" onClick={() => router.push('/auth/login')} className="w-full">
+            Go to Login
+          </Button>
         </CardFooter>
       </Card>
     );
   }
 
   return (
-    <Card className="w-full">
-      <CardHeader className="text-center">
+    <Card className="w-full max-w-md">
+      <CardHeader>
         <CardTitle>Complete Your Registration</CardTitle>
         <CardDescription>
-          You've been invited to join ChronoChimp! Please set up your account.
+          Set up your account to accept the invitation sent to {email}
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email Address</Label>
-            <Input id="email" type="email" value={email} readOnly disabled />
-            <p className="text-xs text-muted-foreground">Invited as: {role}</p>
+            <Label htmlFor="email">Email</Label>
+            <Input id="email" type="email" value={email} disabled className="bg-muted" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="name">Full Name</Label>
-            <Input 
-              id="name" 
-              placeholder="Your Name" 
+            <Input
+              id="name"
+              placeholder="Enter your full name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
@@ -188,20 +173,20 @@ export default function AcceptInvitePage() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <Input 
-              id="password" 
-              type="password" 
-              placeholder="Choose a password (min. 6 chars)"
+            <Input
+              id="password"
+              type="password"
+              placeholder="Choose a secure password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)} 
+              onChange={(e) => setPassword(e.target.value)}
               required
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirmPassword">Confirm Password</Label>
-            <Input 
-              id="confirmPassword" 
-              type="password" 
+            <Input
+              id="confirmPassword"
+              type="password"
               placeholder="Confirm your password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
@@ -209,24 +194,30 @@ export default function AcceptInvitePage() {
             />
           </div>
         </CardContent>
-        <CardFooter className="flex flex-col space-y-4">
-          <Button 
-            type="submit" 
-            className="w-full" 
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? "Creating Account..." : (
+        <CardFooter>
+          <Button type="submit" className="w-full" disabled={isSubmitting}>
+            {isSubmitting ? (
               <>
-                <UserCheck className="mr-2 h-4 w-4" />
-                Create Account
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating Account...
               </>
+            ) : (
+              'Create Account'
             )}
           </Button>
-          <p className="text-sm text-center text-muted-foreground">
-            Already have an account? <Link href="/auth/signin" className="underline">Sign In</Link>
-          </p>
         </CardFooter>
       </form>
     </Card>
+  );
+}
+
+// Main page component with Suspense boundary
+export default function AcceptInvitePage() {
+  return (
+    <div className="w-full max-w-md mx-auto">
+      <Suspense fallback={<div className="flex justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
+        <AcceptInviteForm />
+      </Suspense>
+    </div>
   );
 }

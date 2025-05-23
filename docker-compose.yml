@@ -33,7 +33,7 @@ services:
   # Production Environment
   prod:
     container_name: chronochimp_prod
-    image: ghcr.io/theonlytruebigmac/chronotask:main
+    image: ghcr.io/theonlytruebigmac/chronochimp:main
     restart: unless-stopped
     ports:
       - "3002:3000"
