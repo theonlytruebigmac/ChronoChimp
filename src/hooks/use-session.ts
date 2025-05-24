@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 export interface SessionUser {
-  userId: string;
+  // Match the backend SessionUser interface
+  id: string;
   name: string;
   email: string;
   role: string;

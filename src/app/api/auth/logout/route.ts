@@ -1,21 +1,28 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { getSecureCookieSettings } from '@/lib/auth-helpers';
 
 export async function POST(request: Request) {
   try {
-    // Fix: Await cookies() before using it
-    const cookieStore = await cookies();
-    cookieStore.set('session_token', '', {
+    // Get cookie security settings based on environment
+    const cookieSettings = getSecureCookieSettings();
+    
+    // Create JSON response with success status
+    const response = NextResponse.json({ success: true });
+    
+    // Set the cookie to expire
+    response.cookies.set('session_token', '', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: cookieSettings.secure,
       maxAge: -1, // Expire the cookie immediately
       path: '/',
-      sameSite: 'lax',
+      sameSite: cookieSettings.sameSite,
     });
-    
-    return NextResponse.json({ success: true });
+
+    return response;
   } catch (error) {
     console.error('Error during logout:', error);
-    return NextResponse.json({ error: 'Failed to logout' }, { status: 500 });
+    // Even if there's an error, redirect to login page
+    return NextResponse.redirect(new URL('/auth/login', request.url));
   }
 }

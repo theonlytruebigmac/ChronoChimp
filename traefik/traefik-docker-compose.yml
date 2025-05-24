@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  traefik:
+    image: traefik:v2.10
+    container_name: traefik
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "80:80"     # HTTP
+      - "443:443"   # HTTPS
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro  # Docker socket for container discovery
+      - ./traefik/data:/data                          # Certificates storage
+      - ./traefik/traefik.yml:/traefik.yml:ro         # Static configuration
+      - ./traefik/config:/config                      # Dynamic configuration directory
+    networks:
+      - web
+    environment:
+      - TZ=UTC
+    labels:
+      - "traefik.enable=true"
+      # Dashboard
+      - "traefik.http.routers.traefik.rule=Host(`traefik.chronochimp.example.com`)"  # Change to your admin domain
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls=true"
+      - "traefik.http.routers.traefik.middlewares=traefik-auth"
+      # HTTP to HTTPS redirect
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
+      # Basic auth for Traefik dashboard (change username/password below)
+      - "traefik.http.middlewares.traefik-auth.basicauth.users=admin:$$apr1$$8EVqITqp$$J3HFIv5LnQTA2hTAfYlJf0"  # admin:changeme
+
+networks:
+  web:
+    external: true

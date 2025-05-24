@@ -72,18 +72,28 @@ export function AppHeader() {
 
   const handleSignOut = async () => {
     try {
-      const response = await fetch('/api/auth/logout', { method: 'POST' });
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include' // Important to include cookies
+      });
+      
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Logout failed' }));
         throw new Error(errorData.error || 'Logout failed');
       }
+      
       toast({
         title: "Signed Out",
         description: "You have been successfully signed out.",
       });
-      setCurrentUser(null); 
-      window.location.href = '/auth/login'; 
+      
+      setCurrentUser(null);
+      // Small delay to ensure the toast is visible before redirect
+      setTimeout(() => {
+        window.location.href = '/auth/login';
+      }, 500);
     } catch (error) {
+      console.error('Logout error:', error);
       toast({
         title: "Logout Error",
         description: (error as Error).message || "Could not sign out. Please try again.",

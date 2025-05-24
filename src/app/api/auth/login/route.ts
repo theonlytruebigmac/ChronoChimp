@@ -1,12 +1,16 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import bcrypt from 'bcrypt';
 import { SignJWT } from 'jose';
+
+// This endpoint needs server runtime for bcrypt and database access
+export const runtime = 'nodejs';
 import { cookies } from 'next/headers';
 import type { UserRole, MockUser as User } from '@/app/admin/page';
+import { getSecureCookieSettings } from '@/lib/auth-helpers';
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_EXPIRATION = '1h';
+const JWT_EXPIRATION = '24h'; // Extended to 24 hours
 
 // User type from DB might include isTwoFactorEnabled and twoFactorSecret
 type UserFromDb = User & {
@@ -22,7 +26,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Server configuration error.' }, { status: 500 });
     }
 
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch (parseError) {
+      console.error('Login request JSON parsing failed:', {
+        error: parseError,
+        contentType: request.headers.get('Content-Type'),
+        method: request.method,
+      });
+      return NextResponse.json({ error: 'Invalid request format. Expected JSON.' }, { status: 400 });
+    }
+
     const { email, password } = body;
 
     if (!email || !password) {
@@ -70,12 +85,16 @@ export async function POST(request: Request) {
     //    This makes `secure: true` for the cookie.
     // 2. Ensure your reverse proxy (Traefik) sends the `X-Forwarded-Proto: https` header
     //    so Next.js knows the original connection was secure.
+    
+    // Get cookie security settings based on environment
+    const cookieSettings = getSecureCookieSettings();
+    
     (await cookies()).set('session_token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60, // 1 hour in seconds
+      secure: cookieSettings.secure,
+      maxAge: 60 * 60 * 24, // 24 hours in seconds
       path: '/',
-      sameSite: 'lax',
+      sameSite: cookieSettings.sameSite,
     });
 
     return NextResponse.json({ user, message: "Login successful" });

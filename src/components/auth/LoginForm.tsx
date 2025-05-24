@@ -1,37 +1,59 @@
-
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { LogIn, ShieldCheck, Loader2 } from 'lucide-react';
 
-// Removed BYPASS_AUTH_FOR_DEV constant
-
 export function LoginForm() {
   const { toast } = useToast();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  
+  const [returnUrl, setReturnUrl] = useState<string>('/dashboard');
   const [showOtpForm, setShowOtpForm] = useState(false);
   const [userIdForOtp, setUserIdForOtp] = useState<string | null>(null);
   const [otp, setOtp] = useState('');
 
+  // Get return URL from query parameter
+  useEffect(() => {
+    const returnUrlParam = searchParams?.get('returnUrl');
+    if (returnUrlParam) {
+      setReturnUrl(returnUrlParam);
+    }
+  }, [searchParams]);
+  
   const handleSubmitPassword = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
+      console.log('Login attempt:', { email }); // Log email for debugging
+      
+      const requestBody = JSON.stringify({ email, password });
+      console.log('Request body:', requestBody); // Log the stringified request
+      
       const response = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: requestBody
+      });
+
+      console.log('Response status:', response.status); // Log the response status
+      console.log('Response headers:', {
+        type: response.headers.get('content-type'),
+        length: response.headers.get('content-length')
       });
 
       const data = await response.json();
+      console.log('Response data:', { ...data, password: '[REDACTED]' }); // Log response data (excluding password)
 
       if (!response.ok) {
         throw new Error(data.error || 'Login failed.');
@@ -50,7 +72,7 @@ export function LoginForm() {
           title: "Login Successful!",
           description: data.message || "Welcome back!",
         });
-        window.location.href = '/dashboard'; // Use full redirect
+        window.location.href = returnUrl; // Redirect to the return URL
       }
     } catch (error: any) {
       toast({
@@ -82,6 +104,13 @@ export function LoginForm() {
       if (!response.ok) {
         throw new Error(data.error || 'OTP verification failed.');
       }
+
+      toast({
+        title: "Login Successful!",
+        description: "Welcome back!",
+      });
+      window.location.href = returnUrl; // Redirect to the return URL after 2FA
+      return;
 
       toast({
         title: "Login Successful!",

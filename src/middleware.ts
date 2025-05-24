@@ -1,7 +1,17 @@
 import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 import type { SessionUser } from '@/app/api/auth/session/route';
+
+interface JWTPayload {
+  id?: string;
+  userId?: string;
+  name: string;
+  email: string;
+  role: string | undefined;
+  iat?: number;
+  exp?: number;
+}
 
 const JWT_SECRET_STRING = process.env.JWT_SECRET;
 let JWT_SECRET_UINT8ARRAY: Uint8Array;
@@ -17,150 +27,269 @@ async function getJwtSecretKey(): Promise<Uint8Array> {
   return JWT_SECRET_UINT8ARRAY;
 }
 
+// Check if we're behind a proxy
+const TRUST_PROXY = process.env.NEXT_PUBLIC_TRUST_PROXY === 'true';
+
+// Get the real client IP when behind a proxy like Traefik
+function getClientIP(request: NextRequest): string {
+  if (TRUST_PROXY) {
+    // When behind a proxy, use X-Forwarded-For header
+    const forwardedFor = request.headers.get('X-Forwarded-For');
+    if (forwardedFor) {
+      // X-Forwarded-For can contain multiple IPs, take the first one
+      return forwardedFor.split(',')[0].trim();
+    }
+  }
+  // Fall back to connection info (available in certain environments)
+  return 'unknown';
+}
+
+// Configure secure cookie settings based on environment
+function getSecureCookieSettings(): { secure: boolean; sameSite: 'strict' | 'lax' | 'none' } {
+  const allowHttpCookies = process.env.NEXT_PUBLIC_ALLOW_HTTP_COOKIES === 'true';
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  // In production, always use secure cookies unless explicitly disabled
+  // In development, allow non-secure cookies for local testing
+  return {
+    secure: isProduction || !allowHttpCookies,
+    sameSite: isProduction ? 'strict' : 'lax'
+  };
+}
+
+// Get the protocol (http/https) accounting for proxies
+function getProtocol(request: NextRequest): string {
+  if (TRUST_PROXY) {
+    // When behind a proxy, use X-Forwarded-Proto header
+    const forwardedProto = request.headers.get('X-Forwarded-Proto');
+    if (forwardedProto) {
+      return forwardedProto.trim().toLowerCase();
+    }
+  }
+  // Fall back to URL protocol
+  return request.nextUrl.protocol.replace(':', '');
+}
+
+// Get the host accounting for proxies
+function getHost(request: NextRequest): string {
+  if (TRUST_PROXY) {
+    // When behind a proxy, use X-Forwarded-Host header
+    const forwardedHost = request.headers.get('X-Forwarded-Host');
+    if (forwardedHost) {
+      return forwardedHost.trim().toLowerCase();
+    }
+  }
+  // Fall back to URL host
+  return request.nextUrl.host;
+}
+
 const PROTECTED_ROUTES = ['/dashboard', '/tasks', '/settings', '/admin', '/views', '/api-docs'];
 const AUTH_ROUTES = ['/auth/login', '/auth/register', '/auth/forgot-password', '/auth/reset-password', '/auth/accept-invite'];
 const ADMIN_PAGE_ROUTES = ['/admin'];
 const ADMIN_API_ROUTES = ['/api/admin'];
+const API_ROUTES = ['/api/tasks', '/api/me'];
 
 // For development, you can set NEXT_PUBLIC_BYPASS_AUTH=true in your .env.local file
 const BYPASS_AUTH_FOR_DEV = process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true';
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-
-  if (BYPASS_AUTH_FOR_DEV) {
-    // console.log('Auth bypass enabled for development in middleware.'); // Removed for cleaner logs
-    return NextResponse.next();
+async function validateApiKey(request: NextRequest): Promise<{ userId: string; role: string } | null> {
+  console.debug('[Middleware] Starting API key validation');
+  
+  const authHeader = request.headers.get('Authorization')?.trim();
+  if (!authHeader) {
+    console.debug('[Middleware] No Authorization header present');
+    return null;
   }
 
-  let secret: Uint8Array;
+  // Case-insensitive check for "bearer" prefix and normalize
+  const match = authHeader.match(/^bearer\s+(.+)$/i);
+  if (!match) {
+    console.debug('[Middleware] Authorization header does not match Bearer token format:', authHeader);
+    return null;
+  }
+
+  const token = match[1].trim();
+  if (!token) {
+    console.debug('[Middleware] Empty token in Authorization header');
+    return null;
+  }
+
   try {
-    secret = await getJwtSecretKey();
-  } catch (error: any) {
-    if (error.message === "JWT_SECRET_NOT_CONFIGURED") {
-      console.error("CRITICAL: JWT_SECRET is not defined. Middleware cannot function securely. All protected routes will be blocked or result in errors.");
-      // For API routes, return JSON error. For pages, redirect.
-      if (ADMIN_API_ROUTES.some(route => pathname.startsWith(route)) || pathname.startsWith('/api/me/') || pathname.startsWith('/api/tasks/')) {
-         return new NextResponse(JSON.stringify({ error: 'Server configuration error: JWT_SECRET is not set.' }), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json' },
-        });
+    // Construct absolute URL for validation
+    const protocol = getProtocol(request);
+    const host = getHost(request);
+    
+    // Create validation URL using protocol and host to preserve settings behind proxy
+    const baseUrl = `${protocol}://${host}`;
+    const validationUrl = new URL('/api/auth/validate-key/edge', baseUrl);
+    
+    console.debug('[Middleware] Validating API key at:', validationUrl.toString());
+
+    const validationResponse = await fetch(validationUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': authHeader,
+        'Content-Type': 'application/json',
+        // Forward original headers for proper context
+        'X-Forwarded-For': request.headers.get('X-Forwarded-For') || '',
+        'X-Forwarded-Proto': request.headers.get('X-Forwarded-Proto') || '',
+        'X-Forwarded-Host': request.headers.get('X-Forwarded-Host') || ''
       }
-      if (PROTECTED_ROUTES.some(route => pathname.startsWith(route))) {
-          const loginUrl = new URL('/auth/login', request.url);
-          loginUrl.searchParams.set('error', 'server_config_error');
-          return NextResponse.redirect(loginUrl);
-      }
-      // Allow access to public routes like /auth/* if JWT_SECRET is not set, as they don't depend on it for their own function
-      return NextResponse.next();
+    });
+
+    const data = await validationResponse.json();
+    console.debug('[Middleware] Validation response:', {
+      status: validationResponse.status,
+      data: data
+    });
+
+    if (!validationResponse.ok) {
+      console.debug('[Middleware] API key validation failed:', data.error);
+      return null;
     }
-    // Other errors during secret key retrieval
-    console.error("Middleware: Error getting JWT secret:", error);
-    if (pathname.startsWith('/api/')) {
-        return new NextResponse(JSON.stringify({ error: 'Internal server error during authentication setup.' }), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json' },
-        });
+
+    if (!data.userId || !data.role) {
+      console.debug('[Middleware] Invalid validation response:', data);
+      return null;
     }
-    const loginUrl = new URL('/auth/login', request.url);
-    loginUrl.searchParams.set('error', 'internal_server_error');
-    return NextResponse.redirect(loginUrl);
+
+    console.debug('[Middleware] API key validated successfully for user:', data.userId);
+    return {
+      userId: data.userId,
+      role: data.role
+    };
+
+  } catch (error) {
+    console.error('[Middleware] Error validating API key:', error);
+    return null;
   }
+}
 
-  const sessionToken = request.cookies.get('session_token')?.value;
+export async function middleware(request: NextRequest) {
+  console.debug('[Middleware] Request:', {
+    method: request.method,
+    url: request.url,
+    headers: Object.fromEntries(request.headers.entries()),
+    protocol: getProtocol(request),
+    host: getHost(request),
+    clientIP: getClientIP(request)
+  });
 
-  const isProtectedRoute = PROTECTED_ROUTES.some(route => pathname.startsWith(route));
-  const isAuthRoute = AUTH_ROUTES.some(route => pathname.startsWith(route));
-  const isAdminPageRoute = ADMIN_PAGE_ROUTES.some(route => pathname.startsWith(route));
-  const isAdminApiRoute = ADMIN_API_ROUTES.some(route => pathname.startsWith(route));
-  const isUserApiRoute = pathname.startsWith('/api/me/') || pathname.startsWith('/api/tasks/');
+  const isAdminApiRoute = request.nextUrl.pathname.startsWith('/api/admin/');
+  const isUserApiRoute = request.nextUrl.pathname.startsWith('/api/tasks') || 
+                        request.nextUrl.pathname.startsWith('/api/me/');
 
-
-  if (isProtectedRoute || isAdminPageRoute || isAdminApiRoute || isUserApiRoute) {
-    if (!sessionToken) {
-      if (isAdminApiRoute || isUserApiRoute) {
-        return new NextResponse(JSON.stringify({ error: 'Unauthorized: No session token found.' }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' },
-        });
+  // For API routes, try API key first
+  if (isAdminApiRoute || isUserApiRoute) {
+    const apiKeyValidation = await validateApiKey(request);
+    if (apiKeyValidation) {
+      console.debug('[Middleware] API key validated successfully:', apiKeyValidation);
+      
+      // Create a new response that clones the incoming request
+      const response = NextResponse.next();
+      
+      // Set user info headers from API key validation
+      response.headers.set('X-User-Id', apiKeyValidation.userId);
+      response.headers.set('X-User-Role', apiKeyValidation.role);
+      
+      // Forward the original Authorization header
+      const authHeader = request.headers.get('Authorization');
+      if (authHeader) {
+        response.headers.set('Authorization', authHeader);
       }
-      const loginUrl = new URL('/auth/login', request.url);
-      if (pathname !== '/auth/login') loginUrl.searchParams.set('next', pathname);
-      return NextResponse.redirect(loginUrl);
-    }
-    try {
-      const { payload } = await jwtVerify(sessionToken, secret) as { payload: SessionUser };
-      const userRole = payload.role;
-
-      // When checking admin access, add debugging
-      if (isAdminPageRoute || isAdminApiRoute) {
-        if (userRole !== 'Admin') {
-          console.log(`Access forbidden to ${pathname} - User role: ${userRole}, userId: ${payload.userId}`);
-          
-          // For API routes, return a JSON response
-          if (isAdminApiRoute) {
-            return new NextResponse(JSON.stringify({ 
-              error: 'Forbidden: Admin access required',
-              userRole: userRole // Include role in response for debugging
-            }), {
-              status: 403,
-              headers: { 'Content-Type': 'application/json' },
-            });
+      
+      // Add proxy-related headers if using a reverse proxy
+      if (TRUST_PROXY) {
+        // Forward proxy-related headers
+        for (const header of ['X-Forwarded-For', 'X-Forwarded-Proto', 'X-Forwarded-Host']) {
+          const value = request.headers.get(header);
+          if (value) {
+            response.headers.set(header, value);
           }
-          
-          // For page routes, redirect with more descriptive error params
-          const dashboardUrl = new URL('/dashboard', request.url);
-          dashboardUrl.searchParams.set('error', 'forbidden');
-          dashboardUrl.searchParams.set('reason', `Your role (${userRole}) does not have admin access`);
-          return NextResponse.redirect(dashboardUrl);
         }
       }
-      // If it's a user-specific API route, the presence of a valid token is enough for middleware.
-      // The route handler itself will use the userId from the token.
-      return NextResponse.next();
-    } catch (error) {
-      // console.warn('Middleware: JWT verification failed for path:', pathname, error); // Keep for debugging if needed
-      const loginUrl = new URL('/auth/login', request.url);
-      if (pathname !== '/auth/login') loginUrl.searchParams.set('next', pathname);
-      const response = NextResponse.redirect(loginUrl);
-      response.cookies.set('session_token', '', { httpOnly: true, maxAge: -1, path: '/' });
+      
+      console.debug('[Middleware] Forwarding with headers:', {
+        headers: Object.fromEntries(response.headers.entries())
+      });
+      
       return response;
+    } else {
+      console.debug('[Middleware] API key validation failed, falling back to session');
     }
   }
 
-  if (isAuthRoute) {
-    if (sessionToken) {
-      try {
-        await jwtVerify(sessionToken, secret);
-        // If token is valid, user is already logged in, redirect from auth pages to dashboard
-        return NextResponse.redirect(new URL('/dashboard', request.url));
-      } catch (error) {
-        // Token is invalid, clear it and let user proceed to auth page
-        const response = NextResponse.next();
-        response.cookies.set('session_token', '', { httpOnly: true, maxAge: -1, path: '/' });
-        return response;
+  // Fall back to session token validation
+  const sessionToken = request.cookies.get('session_token')?.value;
+  console.debug('[Middleware] Cookies:', {
+    all: request.cookies.getAll(),
+    sessionToken: sessionToken?.substring(0, 20) + '...'
+  });
+
+  if (sessionToken) {
+    try {
+      if (!JWT_SECRET_STRING) {
+        throw new Error("JWT_SECRET_NOT_CONFIGURED");
       }
+      const secret = new TextEncoder().encode(JWT_SECRET_STRING);
+      const { payload } = await jwtVerify(sessionToken, secret) as { payload: { userId: string; role: string; } };
+      
+      console.debug('[Middleware] Session payload:', {
+        userId: payload.userId,
+        role: payload.role,
+        rawPayload: payload
+      });
+      
+      // Create response with session user info
+      const response = NextResponse.next();
+      response.headers.set('X-User-Id', payload.userId);
+      response.headers.set('X-User-Role', payload.role);
+      return response;
+      
+    } catch (error) {
+      console.error('[Middleware] Session validation failed:', error);
+      // Continue without setting headers - the API will handle unauthorized access
     }
-    return NextResponse.next();
   }
 
+  const pathname = request.nextUrl.pathname;
+  
+  // If this is a protected route and user is not authenticated, redirect to login
+  if (PROTECTED_ROUTES.some(route => pathname.startsWith(route))) {
+    // Skip auth check for API routes as they handle their own auth
+    if (!pathname.startsWith('/api/')) {
+      // No valid session or API key found, redirect to login
+      const loginUrl = new URL('/auth/login', request.url);
+      // Add the return URL as a query parameter
+      loginUrl.searchParams.set('returnUrl', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+  }
+
+  // Allow the request to continue for non-protected routes or API routes
   return NextResponse.next();
 }
 
 export const config = {
   matcher: [
-    '/((?!api/auth/register|_next/static|_next/image|favicon.ico|openapi.yaml).*)',
+    // Match all paths except Next.js system paths and static assets
+    '/((?!_next/static|_next/image|_next/webpack-hmr|favicon.ico|openapi.yaml).*)',
+    // Include /api/auth/validate-key explicitly since we need to process it
+    '/api/auth/validate-key/:path*',
+    // Protected routes
     '/dashboard/:path*',
     '/tasks/:path*',
     '/settings/:path*',
     '/admin/:path*',
     '/views/:path*',
     '/api-docs/:path*',
+    // Auth routes
     '/auth/login',
-    '/auth/register', 
+    '/auth/register',
     '/auth/forgot-password',
     '/auth/reset-password',
     '/auth/accept-invite',
+    // Protected API routes
     '/api/me/:path*',
     '/api/tasks/:path*',
     '/api/admin/:path*',

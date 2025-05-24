@@ -1,0 +1,111 @@
+## Traefik Dynamic Configuration for ChronoChimp
+## Place this file in your Traefik configuration directory and adjust paths as needed
+
+http:
+  # Routers define how traffic is directed to services
+  routers:
+    # Main ChronoChimp application router
+    chronochimp:
+      rule: "Host(`chronochimp.example.com`)"
+      service: "chronochimp"
+      entryPoints:
+        - "websecure"  # The HTTPS entry point
+      middlewares:
+        - "chronochimp-secured"
+      tls: {}  # Enable TLS for this router
+    
+    # API-specific router with extra security and rate limiting
+    chronochimp-api:
+      rule: "Host(`chronochimp.example.com`) && PathPrefix(`/api`)"
+      service: "chronochimp"
+      entryPoints:
+        - "websecure"
+      middlewares:
+        - "chronochimp-api"
+      tls: {}
+
+  # Services define how to reach the actual application
+  services:
+    chronochimp:
+      loadBalancer:
+        servers:
+          - url: "http://chronochimp_prod:3000"  # Internal Docker service name and port
+        passHostHeader: true
+
+  # Middlewares define adjustments to requests/responses
+  middlewares:
+    # Security Headers
+    secure-headers:
+      headers:
+        frameDeny: true
+        browserXssFilter: true
+        contentTypeNosniff: true
+        forceSTSHeader: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000
+        contentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'"
+        referrerPolicy: "strict-origin-when-cross-origin"
+        permissionsPolicy: "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+    
+    # Compression middleware
+    compress:
+      compress: {}
+    
+    # HTTPS Redirect
+    https-redirect:
+      redirectScheme:
+        scheme: https
+        permanent: true
+    
+    # CORS Headers
+    cors-headers:
+      headers:
+        accessControlAllowMethods: "GET,POST,PUT,DELETE,OPTIONS"
+        accessControlAllowOriginList: "https://chronochimp.example.com"
+        accessControlAllowCredentials: true
+        accessControlMaxAge: 100
+        addVaryHeader: true
+    
+    # Forward authentication headers properly
+    auth-headers:
+      headers:
+        customRequestHeaders:
+          X-Forwarded-Proto: "https"
+          X-Forwarded-Host: "chronochimp.example.com"  # Update with your domain
+    
+    # Rate limiting to prevent abuse
+    rate-limit:
+      rateLimit:
+        average: 100
+        burst: 50
+    
+    # Chain middlewares together for common use cases
+    chronochimp-secured:
+      chain:
+        middlewares:
+          - secure-headers
+          - compress
+          - auth-headers
+    
+    chronochimp-api:
+      chain:
+        middlewares:
+          - secure-headers
+          - compress
+          - cors-headers
+          - auth-headers
+          - rate-limit
+
+# TLS Configuration
+tls:
+  options:
+    default:
+      minVersion: "VersionTLS12"
+      cipherSuites:
+        - "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"
+        - "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
+        - "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"
+        - "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
+        - "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305"
+        - "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305"

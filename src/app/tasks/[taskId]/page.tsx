@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
@@ -20,7 +19,12 @@ import { TimeLogDialog } from '@/components/tasks/TimeLogDialog';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchTask, updateTask as updateTaskApi } from '@/lib/api/tasks';
 import { Skeleton } from '@/components/ui/skeleton';
+import { TagInput, TagData } from '@/components/tasks/TagInput';
 
+// Create a type for the editable task with TagData[]
+type EditableTask = Omit<Task, 'tags'> & {
+  tags?: TagData[];
+};
 
 const taskStatuses: TaskStatus[] = ['Backlog', 'In Progress', 'Review', 'Done'];
 
@@ -38,7 +42,7 @@ export default function TaskDetailPage() {
     enabled: !!taskId,
   });
 
-  const [editableTask, setEditableTask] = useState<Partial<Task>>({});
+  const [editableTask, setEditableTask] = useState<Partial<EditableTask>>({});
   const [originalTask, setOriginalTask] = useState<Task | null>(null);
 
   const [newTagValue, setNewTagValue] = useState('');
@@ -63,9 +67,21 @@ export default function TaskDetailPage() {
 
   useEffect(() => {
     if (task) {
+      // Convert tags to TagData format if they're strings
+      let processedTags: TagData[] = [];
+      if (task.tags && Array.isArray(task.tags)) {
+        processedTags = task.tags.map((tag: any) => {
+          if (typeof tag === 'string') {
+            return { text: tag };
+          } else {
+            return { text: tag.text, color: tag.color || '' };
+          }
+        });
+      }
+
       setEditableTask({
         ...task,
-        tags: task.tags || [],
+        tags: processedTags,
         subtasks: task.subtasks || [],
         timeLogs: task.timeLogs || [],
         notes: task.notes || '',
@@ -81,7 +97,18 @@ export default function TaskDetailPage() {
   }, [task]);
 
   const updateTaskMutation = useMutation({
-    mutationFn: (taskData: Partial<Omit<Task, 'id' | 'createdAt' | 'updatedAt'>>) => updateTaskApi(taskId, taskData),
+    mutationFn: (taskData: Partial<EditableTask>) => {
+      // Convert EditableTask format back to Task format for API
+      const { tags, ...restData } = taskData;
+      
+      // Convert TagData[] to string[] which is what the API expects
+      const apiData: any = {
+        ...restData,
+        tags: tags ? tags.map(tag => (typeof tag === 'string' ? { text: tag } : tag)) : undefined
+      };
+      
+      return updateTaskApi(taskId, apiData);
+    },
     onSuccess: (updatedTaskData) => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.setQueryData(['task', taskId], updatedTaskData);
@@ -147,34 +174,36 @@ export default function TaskDetailPage() {
     setNewTagValue(e.target.value);
   };
 
-  const handleAddNewTag = () => {
-    if (!newTagValue.trim()) {
-      setNewTagValue('');
-      return;
-    }
-    const tagToAdd = newTagValue.trim();
-    const currentTags = editableTask.tags || [];
-    if (!currentTags.includes(tagToAdd)) {
-      setEditableTask(prevTask => ({
-        ...prevTask,
-        tags: [...currentTags, tagToAdd],
+  const handleTagInputChange = (value: string) => {
+    setNewTagValue(value);
+  };
+
+  const handleAddTag = (tag: TagData) => {
+    if (tag.text && !editableTask.tags?.some(t => t.text === tag.text)) {
+      setEditableTask(prev => ({
+        ...prev,
+        tags: [...(prev.tags || []), tag],
       }));
     }
-    setNewTagValue('');
   };
 
-  const handleNewTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault();
-      handleAddNewTag();
-    }
-  };
-
-  const handleRemoveTag = (tagToRemove: string) => {
-    setEditableTask(prevTask => ({
-      ...prevTask,
-      tags: (prevTask.tags || []).filter(tag => tag !== tagToRemove),
+  const handleRemoveTag = (indexToRemove: number) => {
+    setEditableTask(prev => ({
+      ...prev,
+      tags: (prev.tags || []).filter((_, index) => index !== indexToRemove),
     }));
+  };
+
+  const handleUpdateTagColor = (index: number, color: string) => {
+    setEditableTask(prev => {
+      const updatedTags = [...(prev.tags || [])];
+      updatedTags[index] = { ...updatedTags[index], color };
+      return { ...prev, tags: updatedTags };
+    });
+  };
+
+  const handleNewSubtaskTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewSubtaskTitle(e.target.value);
   };
 
   const handleSubtaskToggle = (subtaskId: string) => {
@@ -484,33 +513,17 @@ export default function TaskDetailPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="newTagInput" className="flex items-center text-base">
+              <Label htmlFor="tagsInput" className="flex items-center text-base">
                 <Tag className="mr-1.5 h-4 w-4 text-muted-foreground" /> Tags
               </Label>
-              <div className="flex flex-wrap items-center gap-2 p-2 border border-input rounded-md min-h-[40px] bg-background">
-                {editableTask.tags && editableTask.tags.map(tag => (
-                  <Badge key={tag} variant="secondary" className="flex items-center gap-1 text-sm py-0.5 px-2">
-                    {tag}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveTag(tag)}
-                      className="ml-1 p-0.5 rounded-full hover:bg-destructive/20 text-destructive-foreground hover:text-destructive focus:outline-none"
-                      aria-label={`Remove ${tag} tag`}
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
-                <Input
-                  id="newTagInput"
-                  type="text"
-                  value={newTagValue}
-                  onChange={handleNewTagInputChange}
-                  onKeyDown={handleNewTagKeyDown}
-                  placeholder={(editableTask.tags && editableTask.tags.length > 0 ? "Add another..." : "Add tag...")}
-                  className="flex-1 h-auto py-1 px-1 border-none shadow-none focus-visible:ring-0 text-base min-w-[120px] bg-transparent"
-                />
-              </div>
+              <TagInput
+                tags={editableTask.tags || []}
+                inputValue={newTagValue}
+                onInputChange={handleTagInputChange}
+                onAddTag={handleAddTag}
+                onRemoveTag={handleRemoveTag}
+                onUpdateTagColor={handleUpdateTagColor}
+              />
             </div>
 
             <div className="space-y-1.5">
@@ -578,7 +591,7 @@ export default function TaskDetailPage() {
                       id="newSubtaskTitle"
                       name="newSubtaskTitle"
                       value={newSubtaskTitle}
-                      onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                      onChange={handleNewSubtaskTitleChange}
                       onKeyDown={handleNewSubtaskKeyDown}
                       placeholder="Enter new subtask title"
                       className="flex-grow text-sm"

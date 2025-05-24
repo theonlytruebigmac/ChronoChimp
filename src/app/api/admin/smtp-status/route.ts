@@ -1,7 +1,42 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/lib/db';
+import { getAuthUserId, verify } from '@/lib/auth';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  const authUser = await verify(request);
+
+  if (!authUser) {
+    return NextResponse.json(
+      { 
+        error: 'Unauthorized',
+        details: 'This endpoint requires authentication'
+      },
+      { 
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json',
+          'WWW-Authenticate': 'Bearer realm="ChronoChimp API"'
+        }
+      }
+    );
+  }
+  
+  // Check if user has admin role
+  if (authUser.role !== 'Admin') {
+    return NextResponse.json(
+      { 
+        error: 'Forbidden',
+        details: 'This endpoint requires admin privileges'
+      },
+      { 
+        status: 403,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+  }
+
   try {
     // Check if SMTP is configured in environment variables
     const envConfigured = !!(

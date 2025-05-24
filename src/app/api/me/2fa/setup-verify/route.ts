@@ -1,56 +1,45 @@
-import { NextResponse } from 'next/server';
+// filepath: /home/fraziersystems/appdata/chronochimp/src/app/api/me/2fa/setup-verify/route.ts
+import { NextResponse, NextRequest } from 'next/server';
 import { z } from 'zod';
 import { authenticator } from 'otplib';
 import { db } from '@/lib/db';
-import { cookies } from 'next/headers';
-import { jwtVerify } from 'jose';
+import { getAuthUserId } from '@/lib/auth';
 
-// Ensure JWT_SECRET is used from environment variables
-const JWT_SECRET_STRING = process.env.JWT_SECRET;
-
-async function getJwtSecretKey(): Promise<Uint8Array> {
-  if (!JWT_SECRET_STRING) {
-    throw new Error("JWT_SECRET is not defined in environment variables. /api/me/2fa/setup-verify cannot function securely.");
-  }
-  return Buffer.from(JWT_SECRET_STRING, 'utf-8');
-}
+// This endpoint needs Node.js runtime for database access
+export const runtime = 'nodejs';
 
 const VerifyOtpSchema = z.object({
   otp: z.string().length(6, { message: "OTP must be 6 digits." }).regex(/^\d+$/, { message: "OTP must only contain digits." }),
   secret: z.string().min(16, { message: "Secret is required and must be at least 16 characters." }), // Typical Base32 secret length
 });
 
-async function getUserIdFromToken(): Promise<string | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('session_token')?.value;
-
-  if (!token) {
-    return null;
-  }
-  try {
-    const secret = await getJwtSecretKey();
-    const { payload } = await jwtVerify(token, secret);
-    return payload.userId as string;
-  } catch (error) {
-    console.error('JWT verification failed in /api/me/2fa/setup-verify:', error);
-    return null;
-  }
-}
-
-export async function POST(request: Request) {
-  let userId: string | null;
-  try {
-    userId = await getUserIdFromToken();
-  } catch (error: any) {
-    if (error.message?.includes("JWT_SECRET is not defined")) {
-      return NextResponse.json({ error: 'Server configuration error: JWT_SECRET is not set.' }, { status: 500 });
-    }
-    console.error('Error getting user ID from token:', error);
-    return NextResponse.json({ error: 'Authentication failed.' }, { status: 500 });
-  }
-
+export async function POST(request: NextRequest) {
+  const userId = await getAuthUserId(request);
+  
   if (!userId) {
-    return NextResponse.json({ error: 'User not authenticated for 2FA verification.' }, { status: 401 });
+    const authHeader = request.headers.get('Authorization');
+    const xUserId = request.headers.get('X-User-Id');
+    
+    console.debug("Auth failure in /api/me/2fa/setup-verify:", {
+      hasAuthHeader: !!authHeader,
+      headerUserId: xUserId
+    });
+    
+    return NextResponse.json(
+      { 
+        error: 'Unauthorized',
+        details: 'This endpoint requires authentication. You can authenticate using either:\n' +
+                '1. Session token cookie (for browser requests)\n' +
+                '2. API key in Authorization header (for API requests, format: "Bearer YOUR_API_KEY")'
+      },
+      { 
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json',
+          'WWW-Authenticate': 'Bearer realm="ChronoChimp API"'
+        }
+      }
+    );
   }
 
   try {
@@ -63,28 +52,33 @@ export async function POST(request: Request) {
 
     const { otp, secret } = validationResult.data;
 
-    const isValidOtp = authenticator.check(otp, secret);
+    // Verify the OTP is valid for this secret
+    const isValidOtp = authenticator.verify({ 
+      token: otp, 
+      secret: secret 
+    });
 
-    if (isValidOtp) {
-      // OTP is valid. Now, permanently store the secret and mark 2FA as enabled for the user.
-      // TODO: In a production system, the 'secret' should be encrypted before storing in the database.
-      try {
-        const stmt = db.prepare('UPDATE users SET isTwoFactorEnabled = ?, twoFactorSecret = ?, updatedAt = ? WHERE id = ?');
-        stmt.run(1, secret, new Date().toISOString(), userId); 
-        console.log(`[2FA Setup Verify] OTP verification successful for user ${userId}. 2FA enabled and secret stored.`);
-        return NextResponse.json({ message: '2FA enabled successfully.' });
-      } catch (dbError) {
-        console.error(`[2FA Setup Verify] Failed to update user ${userId} in DB:`, dbError);
-        return NextResponse.json({ error: 'Failed to save 2FA settings. Please try again.' }, { status: 500 });
-      }
-    } else {
-      console.log(`[2FA Setup Verify] OTP verification failed for user ${userId}.`);
+    if (!isValidOtp) {
       return NextResponse.json({ error: 'Invalid OTP. Please try again.' }, { status: 400 });
     }
 
+    try {
+      // Update user's 2FA settings in the database
+      // Store the secret and mark 2FA as enabled
+      const stmt = db.prepare('UPDATE users SET isTwoFactorEnabled = ?, twoFactorSecret = ?, updatedAt = ? WHERE id = ?');
+      // TODO: In a production system, the 'secret' should be encrypted before storing in the database.
+      stmt.run(1, secret, new Date().toISOString(), userId);
+
+      return NextResponse.json({ 
+        success: true,
+        message: '2FA has been successfully enabled for your account.'
+      });
+    } catch (dbError) {
+      console.error('Database error during 2FA setup:', dbError);
+      return NextResponse.json({ error: 'Failed to enable 2FA. Database error.' }, { status: 500 });
+    }
   } catch (error) {
-    console.error('2FA setup verification failed:', error);
+    console.error('2FA verification failed:', error);
     return NextResponse.json({ error: 'Failed to verify 2FA setup.' }, { status: 500 });
   }
 }
-

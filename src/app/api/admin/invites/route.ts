@@ -1,12 +1,14 @@
-'use server';
-
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { randomUUID } from 'crypto';
 import bcrypt from 'bcrypt';
 import { z } from 'zod';
 import type { UserRole } from '@/app/admin/page';
 import { sendUserInviteEmail } from '@/lib/emailService';
+import { getAuthUserId } from '@/lib/auth';
+
+// This endpoint needs Node.js runtime for database and bcrypt
+export const runtime = 'nodejs';
 
 const SALT_ROUNDS = 10;
 const INVITE_EXPIRY_HOURS = 72; // 3 days

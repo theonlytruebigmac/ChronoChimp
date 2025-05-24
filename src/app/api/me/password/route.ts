@@ -1,44 +1,37 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import bcrypt from 'bcrypt';
-import { cookies } from 'next/headers';
-import { jwtVerify } from 'jose';
+import { getAuthUserId } from '@/lib/auth';
 
 const SALT_ROUNDS = 10;
 
-// Ensure JWT_SECRET is used from environment variables
-const JWT_SECRET_STRING = process.env.JWT_SECRET;
-
-async function getUserIdFromToken(): Promise<string | null> {
-  if (!JWT_SECRET_STRING) {
-    console.error("JWT_SECRET is not defined in environment variables. /api/me/password cannot function securely.");
-    return null;
-  }
-
-  const cookieStore = await cookies();
-  const token = cookieStore.get('session_token')?.value;
-
-  if (!token) {
-    return null;
-  }
-  try {
-    const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_STRING);
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    return payload.userId as string;
-  } catch (error) {
-    console.error('JWT verification failed in /api/me/password:', error);
-    return null;
-  }
-}
-
-export async function PUT(request: Request) {
-  if (!JWT_SECRET_STRING) {
-    return NextResponse.json({ error: 'Server configuration error.' }, { status: 500 });
-  }
-
-  const userId = await getUserIdFromToken();
+export async function PUT(request: NextRequest) {
+  const userId = await getAuthUserId(request);
+  
   if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized. No session found or token invalid.' }, { status: 401 });
+    const authHeader = request.headers.get('Authorization');
+    const xUserId = request.headers.get('X-User-Id');
+    
+    console.debug("Auth failure in /api/me/password:", {
+      hasAuthHeader: !!authHeader,
+      headerUserId: xUserId
+    });
+    
+    return NextResponse.json(
+      { 
+        error: 'Unauthorized',
+        details: 'This endpoint requires authentication. You can authenticate using either:\n' +
+                '1. Session token cookie (for browser requests)\n' +
+                '2. API key in Authorization header (for API requests, format: "Bearer YOUR_API_KEY")'
+      },
+      { 
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json',
+          'WWW-Authenticate': 'Bearer realm="ChronoChimp API"'
+        }
+      }
+    );
   }
 
   try {

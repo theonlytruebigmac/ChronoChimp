@@ -11,42 +11,29 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
-      - chronotask_data_dev:/app/.data
+      - .data:/app/.data
     ports:
       - "9004:9004"
+    env_file:
+      - .env.development
     environment:
       NODE_ENV: development
-      BASE_URL: ${BASE_URL}
-      DATABASE_ENCRYPTION_KEY: ${DATABASE_ENCRYPTION_KEY}
-      JWT_SECRET: ${JWT_SECRET}
-      NEXT_PUBLIC_BYPASS_AUTH: ${NEXT_PUBLIC_BYPASS_AUTH}
-      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME}
-      JWT_EXPIRATION: ${JWT_EXPIRATION}
-      NEXT_PUBLIC_ALLOW_HTTP_COOKIES: ${NEXT_PUBLIC_ALLOW_HTTP_COOKIES}
 
   # Production Environment
   prod:
     container_name: chronochimp_prod
     image: ghcr.io/theonlytruebigmac/chronochimp:main
     restart: unless-stopped
-    ports:
-      - "3002:3000"
-    volumes:
-      - chronotask_data_prod:/app/.data
+    env_file:
+      - .env.production
     environment:
       NODE_ENV: production
-      PORT: 3000
-      BASE_URL: ${BASE_URL}
-      DATABASE_ENCRYPTION_KEY: ${DATABASE_ENCRYPTION_KEY}
-      JWT_SECRET: ${JWT_SECRET}
-      NEXT_PUBLIC_BYPASS_AUTH: ${NEXT_PUBLIC_BYPASS_AUTH}
-      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME}
-      JWT_EXPIRATION: ${JWT_EXPIRATION}
-      NEXT_PUBLIC_ALLOW_HTTP_COOKIES: ${NEXT_PUBLIC_ALLOW_HTTP_COOKIES}
-      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+    volumes:
+      - chronotask_data_prod:/app/.data
+    networks:
+      - t3_proxy
 
 volumes:
-  chronotask_data_dev:
   chronotask_data_prod:
 
 networks:

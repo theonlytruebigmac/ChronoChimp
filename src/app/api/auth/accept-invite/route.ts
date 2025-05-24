@@ -1,6 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import bcrypt from 'bcrypt';
+
+// This endpoint needs server runtime for bcrypt and database access
+export const runtime = 'nodejs';
 import { randomUUID } from 'crypto';
 
 const SALT_ROUNDS = 10;

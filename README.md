@@ -6,7 +6,7 @@ A modern time tracking and productivity application built with Next.js.
 
 - ⏱️ Time tracking with start/stop functionality
 - 📊 Analytics and reporting dashboard
-- 🔐 User authentication
+- 🔐 User authentication with API key support
 - 💾 Data persistence and synchronization
 - 📱 Responsive design for desktop and mobile
 - 🌙 Dark/light theme support
@@ -38,9 +38,16 @@ npm install
 yarn install
 ```
 
-3. Set up environment variables (if needed):
+3. Set up environment variables:
 ```bash
-cp .env.example .env.local
+# Copy example environment file
+cp .env.example .env.development
+
+# Edit the development environment file
+nano .env.development
+
+# Switch to development environment
+./scripts/env-manager.sh dev
 ```
 
 4. Run the development server:
@@ -51,6 +58,37 @@ yarn dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to view the application.
+
+## Authentication
+
+ChronoChimp supports two authentication methods:
+
+### 1. Session-based Authentication (for browsers)
+- Uses JWT tokens stored in cookies
+- Automatically handles login/logout
+- Ideal for web application usage
+
+### 2. API Key Authentication (for programmatic access)
+- Generate API keys in the Settings menu
+- Include in API requests with Authorization header
+- Format: `Authorization: Bearer YOUR_API_KEY`
+- Ideal for integrations and automation
+
+Example API request with an API key:
+```bash
+curl -X GET "https://your-app-url.com/api/tasks" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json"
+```
+
+You can use the included test script to verify API authentication:
+```bash
+# First, add your API key to the script
+nano scripts/test-api-auth.sh
+
+# Then run it
+./scripts/test-api-auth.sh
+```
 
 ## Project Structure
 
@@ -75,6 +113,85 @@ src/
 - `npm run start` - Start production server
 - `npm run lint` - Run ESLint
 - `npm run type-check` - Run TypeScript compiler
+
+## Environment Configuration
+
+ChronoChimp supports separate configuration environments for development and production:
+
+### Environment Files
+
+- `.env.example` - Template with all available configuration options
+- `.env.development` - Configuration for local development
+- `.env.production` - Configuration for production deployment
+- `.env.local` - Active environment (copied from either development or production)
+
+### Environment Manager Script
+
+ChronoChimp includes a helpful script for managing environment configurations at `scripts/env-manager.sh`:
+
+```bash
+# Switch to development environment
+./scripts/env-manager.sh dev
+
+# Switch to production environment
+./scripts/env-manager.sh prod
+
+# Show current environment status
+./scripts/env-manager.sh status
+
+# Edit development environment
+./scripts/env-manager.sh edit dev
+
+# Edit production environment
+./scripts/env-manager.sh edit prod
+
+# Create development environment from example
+./scripts/env-manager.sh create dev
+
+# Create production environment from example
+./scripts/env-manager.sh create prod
+```
+
+### Production with Traefik
+
+When deploying to production behind a Traefik reverse proxy:
+
+1. Create a production environment:
+   ```bash
+   ./scripts/env-manager.sh create prod
+   ```
+
+2. Edit production settings:
+   ```bash
+   ./scripts/env-manager.sh edit prod
+   ```
+
+3. Ensure these settings are configured properly:
+   ```
+   NODE_ENV=production
+   NEXT_PUBLIC_TRUST_PROXY=true
+   NEXT_PUBLIC_APP_URL=https://your-domain.com
+   ```
+
+4. The docker-compose.yml file includes Traefik labels for automatic configuration
+
+5. Test your production environment setup:
+   ```bash
+   ./scripts/test-production-env.sh
+   ```
+
+6. Switch to production mode and start the server:
+   ```bash
+   ./scripts/env-manager.sh prod
+   docker-compose up -d prod
+   ```
+
+### Key Environment Variables
+
+- `NEXT_PUBLIC_TRUST_PROXY` - Set to 'true' when behind a reverse proxy like Traefik
+- `NEXT_PUBLIC_ALLOW_HTTP_COOKIES` - Set to 'false' in production to require secure cookies
+- `NEXT_PUBLIC_BYPASS_AUTH` - Authentication bypass for development (never use in production)
+- `CORS_ALLOWED_ORIGINS` - Comma-separated list of allowed origins for CORS
 
 ## Development Guidelines
 

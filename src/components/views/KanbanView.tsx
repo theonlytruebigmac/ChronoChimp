@@ -107,11 +107,22 @@ function KanbanTaskCard({ task, isDragging }: KanbanTaskCardProps) {
           <div className="flex flex-wrap gap-2 items-center justify-end">
             {task.tags && task.tags.length > 0 && (
               <div className="flex flex-wrap gap-1">
-                {task.tags.map((tag, index) => (
-                  <Badge key={index} variant="secondary" className="text-xs capitalize">
-                    {tag}
-                  </Badge>
-                ))}
+                {task.tags.map((tag, index) => {
+                  // Handle both string tags and TagData objects
+                  const tagText = typeof tag === 'string' ? tag : tag.text;
+                  const tagColor = typeof tag === 'string' ? undefined : tag.color;
+                  
+                  return (
+                    <Badge 
+                      key={index} 
+                      variant="secondary" 
+                      className="text-xs capitalize"
+                      style={tagColor ? { backgroundColor: tagColor, color: 'white' } : undefined}
+                    >
+                      {tagText}
+                    </Badge>
+                  );
+                })}
               </div>
             )}
             {task.priority && (

@@ -1,13 +1,48 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/lib/db';
+import { getAuthUserId, verify } from '@/lib/auth';
 
 interface Params {
   params: { inviteId: string };
 }
 
-export async function DELETE(request: Request, { params }: Params) {
+export async function DELETE(request: NextRequest, { params }: Params) {
+  const authUser = await verify(request);
+
+  if (!authUser) {
+    return NextResponse.json(
+      { 
+        error: 'Unauthorized',
+        details: 'This endpoint requires authentication'
+      },
+      { 
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json',
+          'WWW-Authenticate': 'Bearer realm="ChronoChimp API"'
+        }
+      }
+    );
+  }
+  
+  // Check if user has admin role
+  if (authUser.role !== 'Admin') {
+    return NextResponse.json(
+      { 
+        error: 'Forbidden',
+        details: 'This endpoint requires admin privileges'
+      },
+      { 
+        status: 403,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+  }
+
   try {
-    // TODO: Add admin authentication check here
+    // TODO: Add role check to verify this user is an admin
     
     // Fix: Use the inviteId directly without destructuring to avoid the async params issue
     const inviteId = params.inviteId;

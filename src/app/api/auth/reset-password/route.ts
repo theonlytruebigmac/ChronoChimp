@@ -1,8 +1,10 @@
-
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import bcrypt from 'bcrypt';
+
+// This endpoint needs Node.js runtime for database and bcrypt
+export const runtime = 'nodejs';
 
 const SALT_ROUNDS = 10; // For hashing the new password and comparing token
 

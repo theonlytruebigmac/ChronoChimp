@@ -31,6 +31,11 @@ export interface TimeLog {
 
 export type TaskStatus = 'Backlog' | 'In Progress' | 'Review' | 'Done';
 
+export interface TagData {
+  text: string;
+  color?: string;
+}
+
 export interface Task {
   id: string;
   userId: string; // Added userId
@@ -40,7 +45,7 @@ export interface Task {
   priority?: 'high' | 'medium' | 'low';
   dueDate?: string; // ISO string for date
   startDate?: string; // ISO string for date
-  tags?: string[];
+  tags?: TagData[] | string[]; // Support both formats for backward compatibility
   subtasks?: Subtask[];
   timeLogs?: TimeLog[];
   notes?: string;
@@ -364,9 +369,22 @@ export function TaskItem({ task, onToggleSubtaskCompletion, onLogTime, onDeleteT
                 <div className="flex items-center gap-2 text-sm">
                   <Tag className="h-4 w-4 text-muted-foreground" />
                   <div className="flex flex-wrap gap-1">
-                    {task.tags.map(tag => (
-                      <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
-                    ))}
+                    {task.tags.map((tag, index) => {
+                      // Handle both string tags and TagData objects
+                      const tagText = typeof tag === 'string' ? tag : tag.text;
+                      const tagColor = typeof tag === 'string' ? undefined : tag.color;
+                      
+                      return (
+                        <Badge 
+                          key={index} 
+                          variant="secondary" 
+                          className="text-xs capitalize"
+                          style={tagColor ? { backgroundColor: tagColor, color: 'white' } : undefined}
+                        >
+                          {tagText}
+                        </Badge>
+                      );
+                    })}
                   </div>
                 </div>
               )}

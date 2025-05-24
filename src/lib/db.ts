@@ -1,5 +1,5 @@
-
 import Database from 'better-sqlite3';
+import type { Database as DatabaseType } from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 
@@ -9,16 +9,33 @@ if (!fs.existsSync(dataDir)) {
 }
 
 const dbPath = path.join(dataDir, 'chrono.db');
-export const db = new Database(dbPath);
 
-// Enable WAL mode for better concurrency and performance.
-db.pragma('journal_mode = WAL');
+function initDatabase() {
+  const db = new Database(dbPath);
+
+  // Add functions to ensure proper UUID handling
+  db.function('ensure_uuid', (id: string) => {
+    if (!id) return null;
+    // UUID pattern: 8-4-4-4-12 chars
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidPattern.test(id) ? id : null;
+  });
+
+  db.function('match_uuid', (id: string, pattern: string) => {
+    if (!id || !pattern) return 0;
+    return id.toLowerCase() === pattern.toLowerCase() ? 1 : 0;
+  });
+
+  return db;
+}
+
+export const db = initDatabase();
 
 // Create tasks table if it doesn't exist
 const createTasksTable = `
   CREATE TABLE IF NOT EXISTS tasks (
-    id TEXT PRIMARY KEY,
-    userId TEXT NOT NULL,
+    id CHAR(36) PRIMARY KEY CHECK (ensure_uuid(id) IS NOT NULL),
+    userId CHAR(36) NOT NULL CHECK (ensure_uuid(userId) IS NOT NULL),
     title TEXT NOT NULL,
     description TEXT,
     status TEXT NOT NULL DEFAULT 'Backlog',
@@ -131,14 +148,21 @@ const createApiKeysTable = `
     id TEXT PRIMARY KEY,
     userId TEXT NOT NULL,
     name TEXT NOT NULL,
-    keyPrefix TEXT NOT NULL,
-    hashedKey TEXT NOT NULL, -- This is a bcrypt hash of the API key
+    hashedKey TEXT NOT NULL UNIQUE,
     last4 TEXT NOT NULL,
     createdAt TEXT DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ', 'now')),
     expiresAt TEXT,
     lastUsedAt TEXT,
+    revoked INTEGER DEFAULT 0,
     FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
   );
+
+  -- Create index on hashedKey for fast lookups during validation
+  CREATE INDEX IF NOT EXISTS idx_api_keys_hashedKey ON api_keys(hashedKey);
+  -- Create index on userId for fast key listing
+  CREATE INDEX IF NOT EXISTS idx_api_keys_userId ON api_keys(userId);
+  -- Create index on revoked and expiresAt for fast validation checks
+  CREATE INDEX IF NOT EXISTS idx_api_keys_status ON api_keys(revoked, expiresAt);
 `;
 db.exec(createApiKeysTable);
 
@@ -169,6 +193,29 @@ const createUserInvitesTable = `
 `;
 db.exec(createUserInvitesTable);
 
+// Create indexes for better query performance
+const createIndexes = `
+  -- Tasks indexes
+  CREATE INDEX IF NOT EXISTS idx_tasks_userId ON tasks(userId);
+  CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+  CREATE INDEX IF NOT EXISTS idx_tasks_dueDate ON tasks(dueDate);
+  
+  -- API keys indexes
+  CREATE INDEX IF NOT EXISTS idx_api_keys_userId ON api_keys(userId);
+  CREATE INDEX IF NOT EXISTS idx_api_keys_hashedKey ON api_keys(hashedKey);
+  CREATE INDEX IF NOT EXISTS idx_api_keys_lastUsedAt ON api_keys(lastUsedAt);
+  CREATE INDEX IF NOT EXISTS idx_api_keys_status ON api_keys(revoked, expiresAt);
+  
+  -- Password reset tokens index
+  CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_userId ON password_reset_tokens(userId);
+  CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expiresAt ON password_reset_tokens(expiresAt);
+  
+  -- User invites indexes
+  CREATE INDEX IF NOT EXISTS idx_user_invites_email ON user_invites(email);
+  CREATE INDEX IF NOT EXISTS idx_user_invites_status ON user_invites(status);
+  CREATE INDEX IF NOT EXISTS idx_user_invites_expiresAt ON user_invites(expiresAt);
+`;
+db.exec(createIndexes);
 
 // console.log('Database initialized and connected at', dbPath); // Removed for cleaner logs in production
 
@@ -183,3 +230,35 @@ export function safeJSONParse<T>(jsonString: string | null | undefined, defaultV
     return defaultValue;
   }
 }
+
+// Helper for safe database operations with proper cleanup
+export function withDb<T>(operation: (db: DatabaseType) => T): T {
+  const stmt = {
+    finalized: false,
+    handle: null as any,
+    finalize() {
+      if (!this.finalized && this.handle) {
+        this.handle.finalize();
+        this.finalized = true;
+      }
+    }
+  };
+
+  try {
+    return operation(db);
+  } catch (error) {
+    console.error('Database operation failed:', error);
+    throw error;
+  } finally {
+    stmt.finalize();
+  }
+}
+
+// Register cleanup handler
+process.on('exit', () => {
+  try {
+    db.close();
+  } catch (error) {
+    console.error('Error closing database connection:', error);
+  }
+});

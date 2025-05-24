@@ -6,9 +6,10 @@ import { authenticator } from 'otplib';
 import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
 import type { UserRole, MockUser as User } from '@/app/admin/page';
+import { getSecureCookieSettings } from '@/lib/auth-helpers';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-very-secure-and-long-jwt-secret-key-for-dev-env-only';
-const JWT_EXPIRATION = '1h';
+const JWT_EXPIRATION = '24h';
 
 const Verify2FASchema = z.object({
   userId: z.string().uuid({ message: "Invalid User ID format." }),
@@ -57,17 +58,20 @@ export async function POST(request: Request) {
 
 
     const token = jwt.sign(
-      { userId: user.id, email: user.email, role: userRole, name: user.name },
+      { id: user.id, email: user.email, role: userRole, name: user.name },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRATION }
     );
 
-    cookies().set('session_token', token, {
+    // Get cookie security settings based on environment
+    const cookieSettings = getSecureCookieSettings();
+    
+    (await cookies()).set('session_token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60, // 1 hour
+      secure: cookieSettings.secure,
+      maxAge: 60 * 60 * 24, // 24 hours
       path: '/',
-      sameSite: 'lax',
+      sameSite: cookieSettings.sameSite,
     });
 
     return NextResponse.json({ user: userWithoutSensitiveData, message: "2FA verification successful. Login complete." });

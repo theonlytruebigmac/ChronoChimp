@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/lib/db'; // Fixed import to use named export
 import type { MockUser as User } from '@/app/admin/page'; // Fixed to use the correct type name
+import { getAuthUserId, verify } from '@/lib/auth';
 
 // Helper function to check if an email exists
 const isEmailInUse = (email: string, excludeUserId?: string): boolean => {
@@ -15,9 +16,43 @@ const isEmailInUse = (email: string, excludeUserId?: string): boolean => {
 };
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   context: { params: { userId: string } }
 ) {
+  const authUser = await verify(request);
+
+  if (!authUser) {
+    return NextResponse.json(
+      { 
+        error: 'Unauthorized',
+        details: 'This endpoint requires authentication'
+      },
+      { 
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json',
+          'WWW-Authenticate': 'Bearer realm="ChronoChimp API"'
+        }
+      }
+    );
+  }
+  
+  // Check if user has admin role
+  if (authUser.role !== 'Admin') {
+    return NextResponse.json(
+      { 
+        error: 'Forbidden',
+        details: 'This endpoint requires admin privileges'
+      },
+      { 
+        status: 403,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+  }
+
   try {
     // Access userId through context parameter
     const { userId } = context.params;
@@ -47,9 +82,43 @@ export async function GET(
 }
 
 export async function PUT(
-  request: Request,
+  request: NextRequest,
   context: { params: { userId: string } }
 ) {
+  const authUser = await verify(request);
+
+  if (!authUser) {
+    return NextResponse.json(
+      { 
+        error: 'Unauthorized',
+        details: 'This endpoint requires authentication'
+      },
+      { 
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json',
+          'WWW-Authenticate': 'Bearer realm="ChronoChimp API"'
+        }
+      }
+    );
+  }
+  
+  // Check if user has admin role
+  if (authUser.role !== 'Admin') {
+    return NextResponse.json(
+      { 
+        error: 'Forbidden',
+        details: 'This endpoint requires admin privileges'
+      },
+      { 
+        status: 403,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+  }
+
   try {
     const { userId } = context.params;
     const data = await request.json();
@@ -143,9 +212,43 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   context: { params: { userId: string } }
 ) {
+  const authUser = await verify(request);
+
+  if (!authUser) {
+    return NextResponse.json(
+      { 
+        error: 'Unauthorized',
+        details: 'This endpoint requires authentication'
+      },
+      { 
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json',
+          'WWW-Authenticate': 'Bearer realm="ChronoChimp API"'
+        }
+      }
+    );
+  }
+  
+  // Check if user has admin role
+  if (authUser.role !== 'Admin') {
+    return NextResponse.json(
+      { 
+        error: 'Forbidden',
+        details: 'This endpoint requires admin privileges'
+      },
+      { 
+        status: 403,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+  }
+
   try {
     const { userId } = context.params;
     

@@ -1,39 +1,7 @@
-
-import { NextResponse } from 'next/server';
+// filepath: /home/fraziersystems/appdata/chronochimp/src/app/api/me/smtp/test-connection/route.ts
+import { NextResponse, NextRequest } from 'next/server';
 import { z } from 'zod';
-import { cookies } from 'next/headers';
-import { jwtVerify } from 'jose';
-
-// Ensure JWT_SECRET is used from environment variables
-const JWT_SECRET_STRING = process.env.JWT_SECRET;
-let JWT_SECRET_UINT8ARRAY: Uint8Array;
-
-async function getJwtSecretKey(): Promise<Uint8Array> {
-  if (!JWT_SECRET_STRING) {
-    throw new Error("JWT_SECRET_NOT_CONFIGURED");
-  }
-  if (!JWT_SECRET_UINT8ARRAY) {
-    JWT_SECRET_UINT8ARRAY = new TextEncoder().encode(JWT_SECRET_STRING);
-  }
-  return JWT_SECRET_UINT8ARRAY;
-}
-
-async function getUserIdFromToken(): Promise<string | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('session_token')?.value;
-
-  if (!token) {
-    return null;
-  }
-  try {
-    const secret = await getJwtSecretKey();
-    const { payload } = await jwtVerify(token, secret);
-    return payload.userId as string;
-  } catch (error) {
-    console.error('JWT verification failed in /api/me/smtp/test-connection:', error);
-    return null;
-  }
-}
+import { getAuthUserId } from '@/lib/auth';
 
 const SmtpTestSchema = z.object({
   smtpHost: z.string().min(1, { message: "SMTP Host is required."}),
@@ -45,20 +13,34 @@ const SmtpTestSchema = z.object({
 });
 
 
-export async function POST(request: Request) {
-  let userId: string | null = null;
-  try {
-    userId = await getUserIdFromToken();
-  } catch (error: any) {
-    if (error.message === "JWT_SECRET_NOT_CONFIGURED") {
-      console.error("CRITICAL: JWT_SECRET is not defined for /api/me/smtp/test-connection.");
-      return NextResponse.json({ success: false, message: 'Server configuration error: JWT_SECRET is not set.' }, { status: 500 });
-    }
-    // Other errors during token processing might still lead to userId being null
-  }
-
+export async function POST(request: NextRequest) {
+  const userId = await getAuthUserId(request);
+  
   if (!userId) {
-    return NextResponse.json({ success: false, message: 'Unauthorized. No session found or token invalid.' }, { status: 401 });
+    const authHeader = request.headers.get('Authorization');
+    const xUserId = request.headers.get('X-User-Id');
+    
+    console.debug("Auth failure in /api/me/smtp/test-connection:", {
+      hasAuthHeader: !!authHeader,
+      headerUserId: xUserId
+    });
+    
+    return NextResponse.json(
+      { 
+        success: false,
+        error: 'Unauthorized',
+        details: 'This endpoint requires authentication. You can authenticate using either:\n' +
+                '1. Session token cookie (for browser requests)\n' +
+                '2. API key in Authorization header (for API requests, format: "Bearer YOUR_API_KEY")'
+      },
+      { 
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json',
+          'WWW-Authenticate': 'Bearer realm="ChronoChimp API"'
+        }
+      }
+    );
   }
 
   try {

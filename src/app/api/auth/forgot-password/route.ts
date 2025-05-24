@@ -1,4 +1,3 @@
-
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
@@ -6,6 +5,9 @@ import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import { sendPasswordResetEmail } from '@/lib/emailService'; // Import the email service
+
+// This endpoint needs Node.js runtime for database and bcrypt
+export const runtime = 'nodejs';
 
 const SALT_ROUNDS = 10; // For hashing the token
 const TOKEN_EXPIRATION_HOURS = 1;

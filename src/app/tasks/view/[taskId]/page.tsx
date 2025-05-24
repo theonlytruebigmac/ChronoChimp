@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -145,11 +144,11 @@ export default function TaskViewPage() {
         <Button variant="outline" size="sm" onClick={() => router.push('/tasks')}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Tasks
         </Button>
-        <Link href={`/tasks/${task.id}`} passHref legacyBehavior>
-          <Button size="sm">
+        <Button size="sm" asChild>
+          <Link href={`/tasks/${task.id}`}>
             <Edit2 className="mr-2 h-4 w-4" /> Edit Task
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </div>
 
       <Card className="shadow-lg">
@@ -201,9 +200,22 @@ export default function TaskViewPage() {
             <div className="space-y-1.5">
               <Label className="flex items-center text-base font-semibold"><Tag className="mr-1.5 h-4 w-4 text-muted-foreground" /> Tags</Label>
               <div className="flex flex-wrap gap-2 pt-1">
-                {task.tags.map(tag => (
-                  <Badge key={tag} variant="secondary" className="text-sm">{tag}</Badge>
-                ))}
+                {task.tags.map((tag, index) => {
+                  // Handle both string tags and TagData objects
+                  const tagText = typeof tag === 'string' ? tag : tag.text;
+                  const tagColor = typeof tag === 'string' ? undefined : tag.color;
+                  
+                  return (
+                    <Badge 
+                      key={index} 
+                      variant="secondary" 
+                      className="text-sm capitalize"
+                      style={tagColor ? { backgroundColor: tagColor, color: 'white' } : undefined}
+                    >
+                      {tagText}
+                    </Badge>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -312,11 +324,11 @@ export default function TaskViewPage() {
             <Button variant="outline" onClick={() => router.push('/tasks')}>
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to Tasks
             </Button>
-             <Link href={`/tasks/${task.id}`} passHref legacyBehavior>
-                <Button>
+            <Button asChild>
+                <Link href={`/tasks/${task.id}`}>
                     <Edit2 className="mr-2 h-4 w-4" /> Edit Task
-                </Button>
-            </Link>
+                </Link>
+            </Button>
         </CardFooter>
       </Card>
     </div>

@@ -1,40 +1,19 @@
-
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/lib/db';
-import type { MockUser as User, UserRole } from '@/app/admin/page';
 import { z } from 'zod';
-import { cookies } from 'next/headers';
-import { jwtVerify } from 'jose';
+import { getAuthUserId } from '@/lib/auth';
 
-// Ensure JWT_SECRET is used from environment variables
-const JWT_SECRET_STRING = process.env.JWT_SECRET;
-let JWT_SECRET_UINT8ARRAY: Uint8Array;
+// This endpoint needs Node.js runtime for database access
+export const runtime = 'nodejs';
 
-async function getJwtSecretKey() {
-  if (!JWT_SECRET_UINT8ARRAY) {
-    if (!JWT_SECRET_STRING) {
-        throw new Error("JWT_SECRET is not defined in environment variables.");
-    }
-    JWT_SECRET_UINT8ARRAY = new TextEncoder().encode(JWT_SECRET_STRING);
-  }
-  return JWT_SECRET_UINT8ARRAY;
-}
-
-async function getUserIdFromToken(request: Request): Promise<string | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('session_token')?.value;
-
-  if (!token) {
-    return null;
-  }
-  try {
-    const secret = await getJwtSecretKey();
-    const { payload } = await jwtVerify(token, secret);
-    return payload.userId as string;
-  } catch (error) {
-    console.error('JWT verification failed in /api/me/profile:', error);
-    return null;
-  }
+// User types
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  avatarUrl?: string | null;
+  joinedDate: string;
 }
 
 // Augment User type to include notification preferences, 2FA, and SMTP settings
@@ -67,10 +46,33 @@ const UpdateProfileSchema = z.object({
 });
 
 
-export async function GET(request: Request) {
-  const userId = await getUserIdFromToken(request);
+export async function GET(request: NextRequest) {
+  const userId = await getAuthUserId(request);
+  
   if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized. No session found or token invalid.' }, { status: 401 });
+    const authHeader = request.headers.get('Authorization');
+    const xUserId = request.headers.get('X-User-Id');
+    
+    console.debug("Auth failure in /api/me/profile:", {
+      hasAuthHeader: !!authHeader,
+      headerUserId: xUserId
+    });
+    
+    return NextResponse.json(
+      { 
+        error: 'Unauthorized',
+        details: 'This endpoint requires authentication. You can authenticate using either:\n' +
+                '1. Session token cookie (for browser requests)\n' +
+                '2. API key in Authorization header (for API requests, format: "Bearer YOUR_API_KEY")'
+      },
+      { 
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json',
+          'WWW-Authenticate': 'Bearer realm="ChronoChimp API"'
+        }
+      }
+    );
   }
 
   try {
@@ -105,10 +107,32 @@ export async function GET(request: Request) {
   }
 }
 
-export async function PUT(request: Request) {
-  const userId = await getUserIdFromToken(request);
+export async function PUT(request: NextRequest) {
+  const userId = await getAuthUserId(request);
   if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized. No session found or token invalid.' }, { status: 401 });
+    const authHeader = request.headers.get('Authorization');
+    const xUserId = request.headers.get('X-User-Id');
+    
+    console.debug("Auth failure in /api/me/profile (PUT):", {
+      hasAuthHeader: !!authHeader,
+      headerUserId: xUserId
+    });
+    
+    return NextResponse.json(
+      { 
+        error: 'Unauthorized',
+        details: 'This endpoint requires authentication. You can authenticate using either:\n' +
+                '1. Session token cookie (for browser requests)\n' +
+                '2. API key in Authorization header (for API requests, format: "Bearer YOUR_API_KEY")'
+      },
+      { 
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json',
+          'WWW-Authenticate': 'Bearer realm="ChronoChimp API"'
+        }
+      }
+    );
   }
   
   try {

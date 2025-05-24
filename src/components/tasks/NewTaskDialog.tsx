@@ -7,12 +7,13 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Plus, Save, X, Trash2, ListChecks } from 'lucide-react';
+import { Plus, Save, X, Trash2, ListChecks, Tag } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useSession } from '../../hooks/use-session'; // Adjust the path as needed
 import type { Task, Subtask, TaskStatus } from './TaskItem'; // Assuming TaskItem exports these
 import { formatInputDateToISO } from '@/lib/utils'; // Updated import path
-
+import { TagInput, TagData } from './TagInput';
 const taskStatuses: TaskStatus[] = ['Backlog', 'In Progress', 'Review', 'Done'];
 type TaskPriority = 'low' | 'medium' | 'high';
 const priorities: TaskPriority[] = ['low', 'medium', 'high'];
@@ -21,12 +22,12 @@ const priorities: TaskPriority[] = ['low', 'medium', 'high'];
 interface NewTaskDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddTask: (newTaskData: Omit<Task, 'id' | 'timeLogs' | 'createdAt' | 'updatedAt'>) => void;
+  onAddTask: (newTaskData: any) => void; // Use any to avoid type conflicts
 }
 
 export function NewTaskDialog({ isOpen, onClose, onAddTask }: NewTaskDialogProps) {
   const { toast } = useToast();
-  const { session } = useSession(); // Get user session
+  const { session, isLoading: isSessionLoading } = useSession(); // Get user session with loading state
 
   const getInitialState = () => ({
     title: '',
@@ -35,6 +36,7 @@ export function NewTaskDialog({ isOpen, onClose, onAddTask }: NewTaskDialogProps
     priority: 'medium' as TaskPriority,
     startDate: '', // Store as yyyy-MM-dd
     dueDate: '',   // Store as yyyy-MM-dd
+    tags: [] as TagData[],
     tagsInput: '',
     notes: '',
     currentSubtaskTitle: '',
@@ -58,6 +60,7 @@ export function NewTaskDialog({ isOpen, onClose, onAddTask }: NewTaskDialogProps
     setFormData(prev => ({ ...prev, [name]: value as TaskStatus | TaskPriority }));
   };
 
+  
   const handleAddSubtask = () => {
     if (!formData.currentSubtaskTitle.trim()) {
       toast({ title: "Subtask Title Empty", description: "Please enter a title for the subtask.", variant: "destructive" });
@@ -84,40 +87,86 @@ export function NewTaskDialog({ isOpen, onClose, onAddTask }: NewTaskDialogProps
     }));
   };
 
+  const handleAddTag = (tag: TagData) => {
+    if (tag.text && !formData.tags.some(t => t.text === tag.text)) {
+      setFormData(prev => ({
+        ...prev,
+        tags: [...prev.tags, tag],
+        tagsInput: '', // Clear input after adding
+      }));
+    }
+  };
+
+  const handleRemoveTag = (indexToRemove: number) => {
+    setFormData(prev => ({
+      ...prev,
+      tags: prev.tags.filter((_, index) => index !== indexToRemove),
+    }));
+  };
+
+  const handleUpdateTagColor = (index: number, color: string) => {
+    setFormData(prev => {
+      const updatedTags = [...prev.tags];
+      updatedTags[index] = { ...updatedTags[index], color };
+      return { ...prev, tags: updatedTags };
+    });
+  };
+
+  const handleTagInputChange = (value: string) => {
+    setFormData(prev => ({ ...prev, tagsInput: value }));
+  };
+
   const handleSubmit = () => {
     if (!formData.title.trim()) {
       toast({ title: "Task Title Required", description: "Please enter a title for the task.", variant: "destructive" });
       return;
     }
 
+    if (isSessionLoading) {
+      toast({ 
+        title: "Loading...", 
+        description: "Please wait while we verify your session.", 
+        variant: "default" 
+      });
+      return;
+    }
+
     // Get the current user ID from the session
-    const currentUserId = session?.userId || '';
+    const currentUserId = session?.id;
     
     if (!currentUserId) {
       toast({ 
         title: "Authentication Error", 
-        description: "Unable to identify current user. Please try again or sign in again.", 
+        description: "You must be signed in to create tasks. Please sign in and try again.", 
         variant: "destructive" 
       });
       return;
     }
 
-    const newTaskData: Omit<Task, 'id' | 'timeLogs' | 'createdAt' | 'updatedAt'> = {
-      userId: currentUserId,
+    // Include any typed but not yet added tag
+    let finalTags: TagData[] = [...formData.tags];
+    if (formData.tagsInput.trim()) {
+      const newTagText = formData.tagsInput.trim();
+      if (!finalTags.some(tag => tag.text === newTagText)) {
+        finalTags.push({ text: newTagText });
+      }
+    }
+
+    const newTaskData = {
+      userId: currentUserId, // Map session.id to task.userId
       title: formData.title,
       description: formData.description || undefined,
       status: formData.status,
       priority: formData.priority,
       startDate: formatInputDateToISO(formData.startDate) || undefined,
       dueDate: formatInputDateToISO(formData.dueDate) || undefined,
-      tags: formData.tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag),
+      tags: finalTags, // TagData[] format
       notes: formData.notes || undefined,
-      subtasks: formData.subtasks.map((st, index) => ({ ...st, id: `new-st-${index}-${Date.now()}` })), // Assign temporary IDs
-      // ensure createdAt and updatedAt are not part of this payload to the API
+      subtasks: formData.subtasks.map((st, index) => ({ ...st, id: `new-st-${index}-${Date.now()}` })),
     };
 
     onAddTask(newTaskData);
-    onClose(); // Dialog is closed by parent after successful add
+    onClose();
   };
 
 
@@ -173,8 +222,15 @@ export function NewTaskDialog({ isOpen, onClose, onAddTask }: NewTaskDialogProps
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="tagsInput">Tags (comma-separated)</Label>
-            <Input id="tagsInput" name="tagsInput" value={formData.tagsInput} onChange={handleChange} placeholder="e.g., design, important, project-x" />
+            <Label htmlFor="tagsInput">Tags</Label>
+            <TagInput
+              tags={formData.tags}
+              inputValue={formData.tagsInput}
+              onInputChange={handleTagInputChange}
+              onAddTag={handleAddTag}
+              onRemoveTag={handleRemoveTag}
+              onUpdateTagColor={handleUpdateTagColor}
+            />
           </div>
 
           <div className="space-y-1.5">
@@ -226,8 +282,13 @@ export function NewTaskDialog({ isOpen, onClose, onAddTask }: NewTaskDialogProps
               <X className="mr-2 h-4 w-4" /> Cancel
             </Button>
           </DialogClose>
-          <Button type="button" onClick={handleSubmit}>
-            <Save className="mr-2 h-4 w-4" /> Save Task
+          <Button 
+            type="button" 
+            onClick={handleSubmit} 
+            disabled={isSessionLoading}
+          >
+            <Save className="mr-2 h-4 w-4" /> 
+            {isSessionLoading ? "Loading..." : "Save Task"}
           </Button>
         </DialogFooter>
       </DialogContent>

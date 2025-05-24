@@ -1,61 +1,21 @@
-
-import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { randomUUID } from 'crypto';
-import bcrypt from 'bcrypt';
+import { NextResponse, NextRequest } from 'next/server';
 import { z } from 'zod';
-import { cookies } from 'next/headers';
-import { jwtVerify, type JWTPayload } from 'jose';
+import { db } from '@/lib/db';
+import { getAuthUserId } from '@/lib/auth';
 
-const SALT_ROUNDS = 10;
-
-// Ensure JWT_SECRET is used from environment variables
-const JWT_SECRET_STRING = process.env.JWT_SECRET;
-let JWT_SECRET_UINT8ARRAY: Uint8Array;
-
-async function getJwtSecretKey(): Promise<Uint8Array> {
-  if (!JWT_SECRET_STRING) {
-    throw new Error("JWT_SECRET_NOT_CONFIGURED");
-  }
-  if (!JWT_SECRET_UINT8ARRAY) {
-    JWT_SECRET_UINT8ARRAY = new TextEncoder().encode(JWT_SECRET_STRING);
-  }
-  return JWT_SECRET_UINT8ARRAY;
-}
-
-interface AuthenticatedUser extends JWTPayload {
-  userId: string;
-  email: string;
-  // Add other fields from your JWT payload if necessary
-}
-
-async function getAuthenticatedUserId(): Promise<string | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('session_token')?.value;
-
-  if (!token) {
-    return null;
-  }
-  try {
-    const secret = await getJwtSecretKey();
-    const { payload } = await jwtVerify(token, secret) as { payload: AuthenticatedUser };
-    return payload.userId;
-  } catch (error) {
-    console.error('JWT verification failed in /api/me/api_keys:', error);
-    return null;
-  }
-}
+// This endpoint needs Node.js runtime for database operations
+export const runtime = 'nodejs';
 
 export interface ApiKey {
   id: string;
   name: string;
-  keyPrefix: string;
+  hashedKey: string;
   last4: string;
   fullKey?: string; // Only for immediate display after creation
-  createdAt: string; 
+  createdAt: string;
   expiresAt?: string | null; // Allow null
   lastUsedAt?: string | null; // Allow null
-  userId?: string; 
+  userId?: string;
 }
 
 const CreateApiKeySchema = z.object({
@@ -63,25 +23,66 @@ const CreateApiKeySchema = z.object({
   expiresInDays: z.number().int().positive().optional().nullable(),
 });
 
-export async function GET(request: Request) {
-  let userId: string | null;
-  try {
-    userId = await getAuthenticatedUserId();
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized. No session found or token invalid.' }, { status: 401 });
-    }
-  } catch (error: any) {
-    if (error.message === "JWT_SECRET_NOT_CONFIGURED") {
-      return NextResponse.json({ error: 'Server configuration error: JWT_SECRET is not set.' }, { status: 500 });
-    }
-    console.error("Error getting authenticated user ID:", error);
-    return NextResponse.json({ error: 'Internal server error during authentication.' }, { status: 500 });
+// Generate a UUID using Web Crypto API
+function generateUUID(): string {
+  const array = new Uint8Array(16);
+  crypto.getRandomValues(array);
+  array[6] = (array[6] & 0x0f) | 0x40; // version 4
+  array[8] = (array[8] & 0x3f) | 0x80; // variant
+  
+  // Convert to hex string with dashes
+  const hex = Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+}
+
+// Hash API key using Web Crypto API
+async function hashAPIKey(key: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(key);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+export async function GET(request: NextRequest) {
+  const userId = await getAuthUserId(request);
+  
+  if (!userId) {
+    const authHeader = request.headers.get('Authorization');
+    const xUserId = request.headers.get('X-User-Id');
+    
+    console.debug("Auth failure in /api/me/api_keys:", {
+      hasAuthHeader: !!authHeader,
+      headerUserId: xUserId
+    });
+    
+    return NextResponse.json(
+      { 
+        error: 'Unauthorized',
+        details: 'This endpoint requires authentication. You can authenticate using either:\n' +
+                '1. Session token cookie (for browser requests)\n' +
+                '2. API key in Authorization header (for API requests, format: "Bearer YOUR_API_KEY")'
+      },
+      { 
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json',
+          'WWW-Authenticate': 'Bearer realm="ChronoChimp API"'
+        }
+      }
+    );
   }
 
-
   try {
-    const stmt = db.prepare('SELECT id, name, keyPrefix, last4, createdAt, expiresAt, lastUsedAt FROM api_keys WHERE userId = ? ORDER BY createdAt DESC');
-    const apiKeys = stmt.all(userId) as Omit<ApiKey, 'fullKey' | 'userId' | 'hashedKey'>[];
+    // Fetch API keys directly from database
+    const stmt = db.prepare(`
+      SELECT id, name, hashedKey, last4, createdAt, expiresAt, lastUsedAt
+      FROM api_keys 
+      WHERE userId = ? AND revoked = 0
+      ORDER BY createdAt DESC
+    `);
+    
+    const apiKeys = stmt.all(userId) as ApiKey[];
     return NextResponse.json(apiKeys);
   } catch (error) {
     console.error('Failed to fetch API keys:', error);
@@ -89,19 +90,33 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
-  let userId: string | null;
-   try {
-    userId = await getAuthenticatedUserId();
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized. No session found or token invalid.' }, { status: 401 });
-    }
-  } catch (error: any) {
-    if (error.message === "JWT_SECRET_NOT_CONFIGURED") {
-      return NextResponse.json({ error: 'Server configuration error: JWT_SECRET is not set.' }, { status: 500 });
-    }
-    console.error("Error getting authenticated user ID:", error);
-    return NextResponse.json({ error: 'Internal server error during authentication.' }, { status: 500 });
+export async function POST(request: NextRequest) {
+  const userId = await getAuthUserId(request);
+  
+  if (!userId) {
+    const authHeader = request.headers.get('Authorization');
+    const xUserId = request.headers.get('X-User-Id');
+    
+    console.debug("Auth failure in /api/me/api_keys (POST):", {
+      hasAuthHeader: !!authHeader,
+      headerUserId: xUserId
+    });
+    
+    return NextResponse.json(
+      { 
+        error: 'Unauthorized',
+        details: 'This endpoint requires authentication. You can authenticate using either:\n' +
+                '1. Session token cookie (for browser requests)\n' +
+                '2. API key in Authorization header (for API requests, format: "Bearer YOUR_API_KEY")'
+      },
+      { 
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json',
+          'WWW-Authenticate': 'Bearer realm="ChronoChimp API"'
+        }
+      }
+    );
   }
 
   try {
@@ -114,7 +129,7 @@ export async function POST(request: Request) {
     
     const { name, expiresInDays } = validationResult.data;
 
-    const newApiKeyId = randomUUID();
+    const newApiKeyId = generateUUID();
     const now = new Date();
     const createdAtIso = now.toISOString();
     
@@ -124,28 +139,39 @@ export async function POST(request: Request) {
       expiresAtDate.setDate(expiresAtDate.getDate() + expiresInDays);
       expiresAtIso = expiresAtDate.toISOString();
     }
-    
-    const rawKeyBytes = crypto.getRandomValues(new Uint8Array(32));
-    const rawKey = Array.from(rawKeyBytes, byte => byte.toString(16).padStart(2, '0')).join('');
-    
-    const keyPrefix = 'sk_live_demo_'; 
-    const fullRawKeyWithPrefix = `${keyPrefix}${rawKey}`;
-    const last4 = fullRawKeyWithPrefix.slice(-4);
-    
-    const hashedKey = await bcrypt.hash(fullRawKeyWithPrefix, SALT_ROUNDS);
 
+    // Generate a random API key using Web Crypto API
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    const keyHash = Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+    const fullKey = keyHash;
+    const last4 = keyHash.slice(-4);
+    
+    // Hash the API key for storage
+    const hashedKey = await hashAPIKey(fullKey);
+
+    // Store the API key in the database
     const stmt = db.prepare(`
-      INSERT INTO api_keys (id, userId, name, keyPrefix, hashedKey, last4, createdAt, expiresAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO api_keys (id, userId, name, hashedKey, last4, createdAt, expiresAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
-    stmt.run(newApiKeyId, userId, name.trim(), keyPrefix, hashedKey, last4, createdAtIso, expiresAtIso);
+    
+    stmt.run(
+      newApiKeyId,
+      userId,
+      name.trim(),
+      hashedKey,
+      last4,
+      createdAtIso,
+      expiresAtIso
+    );
 
     const newApiKeyResponse: ApiKey = {
       id: newApiKeyId,
       name: name.trim(),
-      keyPrefix,
+      hashedKey,
       last4,
-      fullKey: fullRawKeyWithPrefix, 
+      fullKey, // Only returned once during creation
       createdAt: createdAtIso,
       expiresAt: expiresAtIso,
     };

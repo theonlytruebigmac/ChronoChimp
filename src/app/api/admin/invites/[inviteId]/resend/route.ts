@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { randomUUID } from 'crypto';
 import bcrypt from 'bcrypt';
 import { sendUserInviteEmail } from '@/lib/emailService';
+import { getAuthUserId, verify } from '@/lib/auth';
 
 const SALT_ROUNDS = 10;
 const INVITE_EXPIRY_HOURS = 72; // 3 days
@@ -11,7 +12,41 @@ interface Params {
   params: { inviteId: string };
 }
 
-export async function POST(request: Request, { params }: Params) {
+export async function POST(request: NextRequest, { params }: Params) {
+  const authUser = await verify(request);
+
+  if (!authUser) {
+    return NextResponse.json(
+      { 
+        error: 'Unauthorized',
+        details: 'This endpoint requires authentication'
+      },
+      { 
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json',
+          'WWW-Authenticate': 'Bearer realm="ChronoChimp API"'
+        }
+      }
+    );
+  }
+  
+  // Check if user has admin role
+  if (authUser.role !== 'Admin') {
+    return NextResponse.json(
+      { 
+        error: 'Forbidden',
+        details: 'This endpoint requires admin privileges'
+      },
+      { 
+        status: 403,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+  }
+
   try {
     // Fix: Access inviteId directly without destructuring
     const inviteId = params.inviteId;
