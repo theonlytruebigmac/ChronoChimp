@@ -3,6 +3,13 @@ import { db } from '@/lib/db'; // Fixed import to use named export
 import type { MockUser as User } from '@/app/admin/page'; // Fixed to use the correct type name
 import { getAuthUserId, verify } from '@/lib/auth';
 
+// Define the type for context params
+interface Context {
+  params: {
+    userId: string;
+  };
+}
+
 // Helper function to check if an email exists
 const isEmailInUse = (email: string, excludeUserId?: string): boolean => {
   const query = excludeUserId
@@ -17,7 +24,7 @@ const isEmailInUse = (email: string, excludeUserId?: string): boolean => {
 
 export async function GET(
   request: NextRequest,
-  context: { params: { userId: string } }
+  context: Context
 ) {
   const authUser = await verify(request);
 
@@ -83,7 +90,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  context: { params: { userId: string } }
+  context: Context
 ) {
   const authUser = await verify(request);
 
@@ -213,7 +220,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  context: { params: { userId: string } }
+  context: Context
 ) {
   const authUser = await verify(request);
 

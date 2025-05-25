@@ -133,7 +133,12 @@ export default function SettingsPage() {
       toast({ title: "Profile Updated", description: "Your profile information has been saved." });
     },
     onError: (error: Error) => {
-      toast({ title: "Error Updating Profile", description: error.message, variant: "destructive" });
+      console.error("Profile update error:", error);
+      toast({ 
+        title: "Error Updating Profile", 
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive" 
+      });
     },
     onSettled: () => {
         setIsSavingSmtp(false); 
@@ -199,7 +204,9 @@ export default function SettingsPage() {
         toast({title: "Missing Fields", description: "Name and Email are required for profile.", variant: "destructive"});
         return;
     }
-    const portNumber = parseInt(smtpPort, 10);
+    
+    // Create a simpler data structure - the backend and API pre-processing 
+    // will handle validation and conversion of empty values
     const dataToUpdate: ProfileUpdateData = {
         name: profileData.name,
         email: profileData.email,
@@ -207,13 +214,15 @@ export default function SettingsPage() {
         emailNotificationsEnabled: profileData.emailNotificationsEnabled,
         inAppNotificationsEnabled: profileData.inAppNotificationsEnabled,
         isTwoFactorEnabled: profileData.isTwoFactorEnabled,
-        smtpHost: smtpHost || null,
-        smtpPort: smtpPort && !isNaN(portNumber) && portNumber > 0 ? portNumber : null,
-        smtpEncryption: smtpEncryption || null,
-        smtpUsername: smtpUsername || null,
-        smtpPassword: smtpPassword || null, // Send if changed, otherwise let backend keep existing if not provided
-        smtpSendFrom: smtpSendFrom || null,
+        smtpHost: smtpHost,
+        smtpPort: smtpPort ? parseInt(smtpPort, 10) : null,
+        smtpEncryption: smtpEncryption,
+        smtpUsername: smtpUsername,
+        smtpPassword: smtpPassword,
+        smtpSendFrom: smtpSendFrom
     };
+    
+    console.log('Saving profile data:', dataToUpdate);
     profileUpdateMutation.mutate(dataToUpdate);
   };
 
@@ -368,21 +377,21 @@ export default function SettingsPage() {
 
   const handleSaveSmtpSettings = () => {
     setIsSavingSmtp(true);
-    const portNumber = parseInt(smtpPort, 10);
-    if (smtpPort && (isNaN(portNumber) || portNumber <= 0)) {
-      toast({ title: "Invalid SMTP Port", description: "Port must be a positive number.", variant: "destructive"});
-      setIsSavingSmtp(false);
-      return;
-    }
     
+    // Create a simpler data structure - the backend and API pre-processing 
+    // will handle validation and conversion of empty values
     const smtpDataToSave: ProfileUpdateData = {
-        smtpHost: smtpHost || null,
-        smtpPort: smtpPort && !isNaN(portNumber) && portNumber > 0 ? portNumber : null,
-        smtpEncryption: smtpEncryption || null,
-        smtpUsername: smtpUsername || null,
-        smtpPassword: smtpPassword || null, 
-        smtpSendFrom: smtpSendFrom || null,
+      smtpHost: smtpHost,
+      smtpPort: smtpPort ? parseInt(smtpPort, 10) : null,
+      smtpEncryption: smtpEncryption,
+      smtpUsername: smtpUsername,
+      smtpPassword: smtpPassword,
+      smtpSendFrom: smtpSendFrom
     };
+    
+    // Log the data being sent to help troubleshoot
+    console.log('Saving SMTP settings:', smtpDataToSave);
+    
     profileUpdateMutation.mutate(smtpDataToSave);
   };
 
@@ -758,7 +767,7 @@ export default function SettingsPage() {
                   <p className="text-sm text-muted-foreground">Manage API keys for external integrations.</p>
                   <AlertDialog 
                     open={isGenerateKeyDialogOpen} 
-                    onOpenChange={(open) => {
+                    onOpenChange={(open: boolean) => {
                       setIsGenerateKeyDialogOpen(open);
                       if (!open) {
                         setNewApiKeyName(''); 
@@ -986,7 +995,7 @@ export default function SettingsPage() {
                   <Switch 
                     id="emailNotifications" 
                     checked={profileData.emailNotificationsEnabled || false}
-                    onCheckedChange={(checked) => handleNotificationToggle('emailNotificationsEnabled', checked)}
+                    onCheckedChange={(checked: boolean) => handleNotificationToggle('emailNotificationsEnabled', checked)}
                     aria-label="Toggle email notifications"
                     disabled={profileUpdateMutation.isPending}
                   />
@@ -999,7 +1008,7 @@ export default function SettingsPage() {
                   <Switch 
                     id="inAppNotifications" 
                     checked={profileData.inAppNotificationsEnabled || false}
-                    onCheckedChange={(checked) => handleNotificationToggle('inAppNotificationsEnabled', checked)}
+                    onCheckedChange={(checked: boolean) => handleNotificationToggle('inAppNotificationsEnabled', checked)}
                     aria-label="Toggle in-app push notifications"
                     disabled={profileUpdateMutation.isPending}
                   />
@@ -1090,7 +1099,7 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
       
-      <Dialog open={is2FASetupDialogOpen} onOpenChange={(open) => {
+      <Dialog open={is2FASetupDialogOpen} onOpenChange={(open: boolean) => {
           if (!open) {
             setIs2FASetupDialogOpen(false);
             setOtpCode(''); 

@@ -1,16 +1,21 @@
-
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import bcrypt from 'bcrypt';
 import { z } from 'zod';
 
-interface Params {
-  params: { token: string };
+// Define the type for context params
+interface Context {
+  params: {
+    token: string;
+  };
 }
 
-export async function GET(request: Request, { params }: Params) {
+export async function GET(
+  request: NextRequest,
+  context: Context
+) {
   try {
-    const { token: rawToken } = params;
+    const { token: rawToken } = context.params;
 
     if (!rawToken || typeof rawToken !== 'string') {
       return NextResponse.json({ error: 'Invite token is required.' }, { status: 400 });

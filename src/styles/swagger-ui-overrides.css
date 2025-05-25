@@ -1,0 +1,538 @@
+/* Light mode defaults */
+.swagger-ui {
+  color: hsl(var(--foreground));
+  background-color: transparent;
+}
+
+/* Header styling */
+.swagger-ui .info {
+  background-color: hsl(var(--card));
+  margin: 0;
+}
+    
+.swagger-ui .info .title {
+  color: hsl(var(--foreground));
+  font-family: var(--font-inter), sans-serif;
+}
+
+.swagger-ui .info p, 
+.swagger-ui .info a {
+  color: hsl(var(--foreground));
+  font-family: var(--font-inter), sans-serif;
+}
+
+/* Operations styling */
+.swagger-ui .opblock {
+  background-color: hsl(var(--card));
+  border-color: hsl(var(--border));
+  box-shadow: none;
+  margin-bottom: 1rem;
+  border-radius: var(--radius);
+}
+
+.swagger-ui .opblock.opblock-get {
+  border-color: hsl(var(--primary));
+}
+
+.swagger-ui .opblock.opblock-post {
+  border-color: hsl(var(--accent));
+}
+
+.swagger-ui .opblock.opblock-put,
+.swagger-ui .opblock.opblock-patch {
+  border-color: hsl(var(--secondary));
+}
+
+.swagger-ui .opblock.opblock-delete {
+  border-color: hsl(var(--destructive));
+}
+
+.swagger-ui .opblock-summary {
+  border-bottom-color: hsl(var(--border));
+}
+
+.swagger-ui .opblock-summary-method {
+  font-family: var(--font-inter), sans-serif;
+}
+
+.swagger-ui .opblock .opblock-summary-description {
+  color: hsl(var(--foreground));
+  font-family: var(--font-inter), sans-serif;
+}
+
+.swagger-ui .opblock .opblock-summary-path {
+  color: hsl(var(--foreground));
+  font-family: var(--font-inter), sans-serif;
+}
+
+.swagger-ui .dialog-ux .modal-ux-header {
+  background-color: hsl(var(--card));
+  border-bottom-color: hsl(var(--border));
+}
+
+.swagger-ui .opblock-summary-operation-id,
+.swagger-ui .opblock-summary-path,
+.swagger-ui .opblock-summary-description,
+.swagger-ui .opblock-description-wrapper p {
+  color: hsl(var(--foreground));
+  font-family: var(--font-inter), sans-serif;
+}
+
+/* Parameters styling */
+.swagger-ui .parameters-container,
+.swagger-ui .tab-container {
+  background-color: transparent;
+}
+
+.swagger-ui table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.swagger-ui table thead tr th,
+.swagger-ui table thead tr td {
+  background-color: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  font-family: var(--font-inter), sans-serif;
+  border-color: hsl(var(--border));
+}
+
+.swagger-ui .parameters-col_name,
+.swagger-ui .parameters-col_description,
+.swagger-ui .response-col_status,
+.swagger-ui .response-col_description {
+  color: hsl(var(--foreground));
+  font-family: var(--font-inter), sans-serif;
+}
+
+/* Buttons and Inputs */
+.swagger-ui .btn {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border-color: transparent;
+  font-family: var(--font-inter), sans-serif;
+  border-radius: var(--radius);
+}
+
+[data-theme="dark"] .swagger-ui .btn.authorize {
+  border-color: #49cc90;
+  color: #ffffff;
+  background-color: transparent;
+}
+
+.swagger-ui .btn:hover {
+  background-color: hsl(var(--primary)/0.9);
+}
+
+.swagger-ui select {
+  background-color: hsl(var(--input));
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--border));
+  font-family: var(--font-inter), sans-serif;
+  border-radius: var(--radius);
+}
+
+/* Schema and model styling */
+.swagger-ui .model-box {
+  background-color: hsl(var(--muted));
+  border-color: hsl(var(--border));
+}
+
+.swagger-ui .model-title,
+.swagger-ui .model {
+  color: hsl(var(--foreground));
+  font-family: var(--font-inter), sans-serif;
+}
+
+.swagger-ui .opblock-body select {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--border));
+  font-family: var(--font-inter), sans-serif;
+  border-radius: var(--radius);
+}
+
+.swagger-ui .response-control-media-type__accept-message {
+  color: hsl(var(--foreground));
+  font-family: var(--font-inter), sans-serif;
+}
+
+.swagger-ui .opblock .opblock-section-header {
+  color: hsl(var(--foreground));
+  font-family: var(--font-inter), sans-serif;
+  background-color: hsl(var(--card));
+}
+
+.swagger-ui .opblock .opblock-section-header h4,
+.swagger-ui .opblock .opblock-section-header h5 {
+  color: hsl(var(--foreground));
+  font-family: var(--font-inter), sans-serif;
+}
+
+.swagger-ui section.models {
+  border-color: hsl(var(--border));
+}
+
+/* Response section */
+.swagger-ui .responses-inner {
+  background-color: hsl(var(--card));
+  color: hsl(var(--foreground));
+}
+
+.swagger-ui .response-col_status {
+  font-family: var(--font-inter), sans-serif;
+}
+
+/* Tags and navigation */
+.swagger-ui .opblock-tag {
+  color: hsl(var(--foreground));
+  font-family: var(--font-inter), sans-serif;
+  border-bottom-color: hsl(var(--border));
+}
+
+.swagger-ui .opblock-tag:hover {
+  background-color: hsl(var(--muted));
+}
+
+/* Code blocks */
+.swagger-ui .highlight-code {
+  background-color: hsl(var(--muted));
+}
+
+.swagger-ui .microlight {
+  color: hsl(var(--foreground));
+  font-family: monospace;
+}
+
+/* Fix the top header bar */
+.swagger-ui .topbar {
+  background-color: hsl(var(--background));
+  padding: 10px 0;
+}
+
+/* API info header */
+.swagger-ui .wrapper {
+  background-color: hsl(var(--card));
+  padding: 0;
+}
+
+/* API info header */
+.swagger-ui .scheme-container {
+  background-color: hsl(var(--card));
+  padding: 0;
+}
+
+/* Fix headers like the "Tasks" section */
+.swagger-ui .opblock-tag-section {
+  margin-bottom: 1.5rem;
+}
+
+.swagger-ui .opblock-tag {
+  background-color: hsl(var(--card));
+  color: hsl(var(--foreground));
+  border-bottom: 1px solid hsl(var(--border));
+  padding: 10px;
+  margin: 0;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+/* Method colors (GET, POST, etc.) */
+.swagger-ui .opblock-summary-method {
+  border-radius: var(--radius);
+  font-weight: 600;
+}
+
+/* Headers for parameters and responses sections */
+.swagger-ui .opblock-section-header {
+  background-color: hsl(var(--muted));
+  border-color: hsl(var(--border));
+  padding: 8px 16px;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+/* Tab headers */
+.swagger-ui .tab li {
+  padding: 0;
+}
+
+.swagger-ui .tab li button {
+  padding: 8px 16px;
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--muted));
+}
+
+[data-theme="dark"] .swagger-ui .tab li button.tablinks {
+  color: #ffffff
+}
+
+[data-theme="dark"] .swagger-ui .json-schema-2020-12-property .json-schema-2020-12__title {
+  color: #ffffff
+}
+
+[data-theme="dark"] .swagger-ui .json-schema-2020-12-json-viewer__name--secondary {
+  color: #ffffff
+}
+
+[data-theme="dark"] .swagger-ui .json-schema-2020-12-json-viewer__value--secondary {
+  color: #ffffff
+}
+
+[data-theme="dark"] .swagger-ui .json-schema-2020-12__attribute--primary {
+  color: yellow
+}
+
+/* Server selector dropdown */
+.swagger-ui .servers-title,
+.swagger-ui .servers > label {
+  color: hsl(var(--foreground));
+  font-family: var(--font-inter), sans-serif;
+}
+
+.swagger-ui .servers select {
+  border: 1px solid hsl(var(--border));
+  background-color: hsl(var(--background));
+}
+
+/* Dark mode overrides */
+[data-theme="dark"] .swagger-ui,
+[data-theme="dark"] .swagger-ui .info .title,
+[data-theme="dark"] .swagger-ui .info p,
+[data-theme="dark"] .swagger-ui .info li,
+[data-theme="dark"] .swagger-ui .opblock-tag,
+[data-theme="dark"] .swagger-ui .opblock .opblock-summary-operation-id,
+[data-theme="dark"] .swagger-ui .opblock .opblock-summary-path,
+[data-theme="dark"] .swagger-ui .opblock .opblock-summary-description,
+[data-theme="dark"] .swagger-ui .opblock-description-wrapper p,
+[data-theme="dark"] .swagger-ui .responses-inner h4,
+[data-theme="dark"] .swagger-ui .responses-inner h5,
+[data-theme="dark"] .swagger-ui .response-col_status,
+[data-theme="dark"] .swagger-ui .response-col_description,
+[data-theme="dark"] .swagger-ui .response-control-media-type__title,
+[data-theme="dark"] .swagger-ui table thead tr th,
+[data-theme="dark"] .swagger-ui table thead tr td,
+[data-theme="dark"] .swagger-ui .parameters-col_name,
+[data-theme="dark"] .swagger-ui .parameters-col_description,
+[data-theme="dark"] .swagger-ui .model-title,
+[data-theme="dark"] .swagger-ui .model,
+[data-theme="dark"] .swagger-ui .parameter__name,
+[data-theme="dark"] .swagger-ui .parameter__type,
+[data-theme="dark"] .swagger-ui .parameter__extension {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Dark mode backgrounds and borders */
+[data-theme="dark"] .swagger-ui .info,
+[data-theme="dark"] .swagger-ui .wrapper,
+[data-theme="dark"] .swagger-ui .scheme-container,
+[data-theme="dark"] .swagger-ui .opblock,
+[data-theme="dark"] .swagger-ui section.models .model-container,
+[data-theme="dark"] .swagger-ui .responses-inner {
+  background-color: hsl(var(--card)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+[data-theme="dark"] .swagger-ui .opblock-tag {
+  background-color: hsl(var(--card)) !important;
+  border-bottom-color: hsl(var(--border)) !important;
+}
+
+[data-theme="dark"] .swagger-ui .opblock-tag:hover {
+  background-color: hsl(var(--muted)) !important;
+}
+
+/* Dark mode buttons and inputs */
+[data-theme="dark"] .swagger-ui .btn {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+[data-theme="dark"] .swagger-ui select,
+[data-theme="dark"] .swagger-ui input[type=text],
+[data-theme="dark"] .swagger-ui textarea {
+  background-color: hsl(var(--input)) !important;
+  color: hsl(var(--foreground)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+/* Dark mode sections and headers */
+[data-theme="dark"] .swagger-ui .opblock-section-header,
+[data-theme="dark"] .swagger-ui table thead tr th,
+[data-theme="dark"] .swagger-ui table thead tr td {
+  background-color: hsl(var(--muted)) !important;
+}
+
+/* Dark mode code blocks */
+[data-theme="dark"] .swagger-ui .highlight-code,
+[data-theme="dark"] .swagger-ui pre.microlight {
+  background-color: hsl(var(--muted)) !important;
+}
+
+[data-theme="dark"] .swagger-ui .microlight code {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Dark mode tab controls */
+[data-theme="dark"] .swagger-ui .tab li button {
+  background-color: hsl(var(--muted));
+  color: hsl(var(--foreground));
+}
+
+[data-theme="dark"] .swagger-ui .tab li.active button {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+/* Dark mode models */
+[data-theme="dark"] .swagger-ui .model,
+[data-theme="dark"] .swagger-ui .model-box {
+  background-color: hsl(var(--muted)) !important;
+}
+
+/* Dark mode method colors - maintain visibility */
+[data-theme="dark"] .swagger-ui .opblock-summary-method {
+  color: hsl(var(--background)) !important;
+}
+
+/* Fix dropdown arrows in dark mode */
+[data-theme="dark"] .swagger-ui select {
+  background-image: url("data:image/svg+xml;charset=utf-8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><path fill='%23f0f0f0' d='M13.418 7.859a.695.695 0 0 1 .978 0 .68.68 0 0 1 0 .969l-3.908 3.83a.697.697 0 0 1-.979 0l-3.908-3.83a.68.68 0 0 1 0-.969.695.695 0 0 1 .978 0L10 11z'/></svg>") !important;
+}
+
+/* Dark mode for try-out sections */
+[data-theme="dark"] .swagger-ui .try-out {
+  border-top-color: hsl(var(--border)) !important;
+}
+
+/* Dark mode copy buttons */
+[data-theme="dark"] .swagger-ui .copy-to-clipboard {
+  background-color: hsl(var(--accent)) !important;
+}
+
+/* Additional styles for complete coverage */
+
+/* Auth dialog and modal styling */
+.swagger-ui .dialog-ux .modal-ux {
+  background-color: hsl(var(--card));
+  border-color: hsl(var(--border));
+}
+
+[data-theme="dark"] .swagger-ui .dialog-ux .modal-ux-header h3 {
+  color: #ffffff
+}
+
+.swagger-ui .dialog-ux .modal-ux-content h4,
+.swagger-ui .dialog-ux .modal-ux-content p {
+  color: hsl(var(--foreground));
+
+  border-bottom-color: hsl(var(--border));
+}
+
+[data-theme="dark"] .swagger-ui label {
+  color: #ffffff
+}
+
+/* JSON schema visualization */
+.swagger-ui .json-schema-2020-12__title,
+.swagger-ui .json-schema-2020-12-keyword__name,
+.swagger-ui .json-schema-2020-12-keyword__value {
+  color: hsl(var(--foreground));
+}
+
+.swagger-ui .json-schema-2020-12 {
+  background-color: hsl(var(--card));
+}
+
+/* Error handling */
+.swagger-ui .errors-wrapper {
+  background-color: hsla(var(--destructive), 0.1);
+  border-color: hsl(var(--destructive));
+}
+
+/* Dark mode for these additional elements */
+[data-theme="dark"] .swagger-ui .dialog-ux .modal-ux {
+  background-color: hsl(var(--card)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+[data-theme="dark"] .swagger-ui .dialog-ux .modal-ux-header,
+[data-theme="dark"] .swagger-ui .dialog-ux .modal-ux-content h4,
+[data-theme="dark"] .swagger-ui .dialog-ux .modal-ux-content p {
+  color: hsl(var(--foreground)) !important;
+  border-bottom-color: hsl(var(--border)) !important;
+}
+
+[data-theme="dark"] .swagger-ui .json-schema-2020-12__title,
+[data-theme="dark"] .swagger-ui .json-schema-2020-12-keyword__name,
+[data-theme="dark"] .swagger-ui .json-schema-2020-12-keyword__value {
+  color: hsl(var(--foreground)) !important;
+}
+
+[data-theme="dark"] .swagger-ui .json-schema-2020-12 {
+  background-color: hsl(var(--card)) !important;
+}
+
+/* Enhanced Schemas section styling */
+.swagger-ui section.models {
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  margin-top: 1rem;
+}
+
+.swagger-ui section.models h4 {
+  color: hsl(var(--foreground));
+  font-family: var(--font-inter), sans-serif;
+  font-weight: 700;
+  font-size: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.swagger-ui .model-box {
+  background-color: hsl(var(--muted));
+  border: 1px solid hsl(var(--border));
+  padding: 1rem;
+  border-radius: var(--radius);
+  margin-bottom: 1rem;
+}
+
+.swagger-ui .model-box .property {
+  color: hsl(var(--foreground));
+  font-family: var(--font-inter), sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.swagger-ui .model-box .property .key {
+  font-weight: 600;
+}
+
+.swagger-ui .model-box .property .type {
+  background-color: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+  font-size: 0.85rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: var(--radius);
+  margin-left: 0.5rem;
+}
+
+/* Dark mode overrides for schemas section */
+[data-theme="dark"] section.models {
+  background-color: hsl(var(--background)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+[data-theme="dark"] .model-box {
+  background-color: hsl(var(--card)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+[data-theme="dark"] section.models h4,
+[data-theme="dark"] .model-box .property {
+  color: hsl(var(--foreground)) !important;
+}
+
+[data-theme="dark"] .model-box .property .type {
+  background-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+}

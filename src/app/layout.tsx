@@ -2,7 +2,10 @@
 
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
-import './globals.css';
+import '@/styles/globals.css';
+import '@/styles/components.css';
+import '@/styles/layouts.css';
+import '@/styles/reset.css';
 import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { AppSidebar } from '@/components/layout/AppSidebar';
@@ -16,14 +19,6 @@ const inter = Inter({
   variable: '--font-inter',
   subsets: ['latin'],
 });
-
-// Metadata needs to be handled differently for client components or in parent server component
-// Since RootLayout is a client component, this export const metadata is not directly used here.
-// It should be defined in page.tsx files or a parent server component.
-// export const metadata: Metadata = {
-//   title: 'ChronoChimp',
-//   description: 'Modern Task Management Application',
-// };
 
 const queryClient = new QueryClient();
 

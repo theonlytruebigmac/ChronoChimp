@@ -63,15 +63,61 @@ export async function fetchUserProfile(): Promise<UserProfile> {
 }
 
 export async function updateUserProfile(profileData: ProfileUpdateData): Promise<UserProfile> {
+  // Pre-process data before sending
+  const processedData = { ...profileData };
+  
+  // Process the avatarUrl if present
+  if (processedData.avatarUrl !== undefined) {
+    // Keep valid URLs and data URIs, set empty strings to null
+    if (processedData.avatarUrl === '') {
+      processedData.avatarUrl = null;
+    } else if (typeof processedData.avatarUrl === 'string' && processedData.avatarUrl.startsWith('data:')) {
+      // Ensure data URIs are valid and start with data:image/
+      if (!processedData.avatarUrl.startsWith('data:image/')) {
+        console.warn('Invalid avatar data URI format, setting to null');
+        processedData.avatarUrl = null;
+      }
+    }
+  }
+  
+  // Ensure smtpPort is either a positive number or null
+  if (processedData.smtpPort !== undefined) {
+    if (typeof processedData.smtpPort === 'string') {
+      const portNum = parseInt(processedData.smtpPort as unknown as string, 10);
+      processedData.smtpPort = !isNaN(portNum) && portNum > 0 ? portNum : null;
+    } else if (processedData.smtpPort !== null && processedData.smtpPort <= 0) {
+      processedData.smtpPort = null;
+    }
+  }
+  
+  // Convert empty strings to null for certain fields
+  ['smtpHost', 'smtpUsername', 'smtpPassword', 'smtpSendFrom', 'smtpEncryption', 'avatarUrl'].forEach(field => {
+    if (processedData[field as keyof ProfileUpdateData] === '') {
+      (processedData as any)[field] = null;
+    }
+  });
+  
   const response = await fetch(`${API_ME_BASE_URL}/profile`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(profileData),
+    body: JSON.stringify(processedData),
   });
+  
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ message: 'Failed to update user profile.' }));
+    
+    // Check for validation errors with more details
+    if (response.status === 400 && errorData.details) {
+      const validationErrors = Object.entries(errorData.details)
+        .map(([field, errors]: [string, any]) => `${field}: ${Array.isArray(errors) ? errors.join(', ') : errors}`)
+        .join('; ');
+      
+      throw new Error(`Validation error: ${validationErrors}`);
+    }
+    
     throw new Error(errorData.error || 'Failed to update user profile');
   }
+  
   return response.json();
 }
 

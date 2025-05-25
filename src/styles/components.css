@@ -1,0 +1,227 @@
+/* Custom component styles for ChronoChimp */
+
+/* Modern scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--muted) / 0.5);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.4);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.6);
+}
+
+/* Focus styles */
+:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* Glass card styles */
+.glass-card {
+  @apply bg-white/25 dark:bg-white/10 backdrop-blur-md border border-white/20 dark:border-white/10 rounded-lg;
+}
+
+/* Gradient text effects */
+.text-gradient {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary;
+}
+
+.text-gradient-accent {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-accent to-primary;
+}
+
+.text-gradient-rainbow {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500;
+}
+
+/* Shimmer effect for skeleton loading */
+.shimmer {
+  @apply relative overflow-hidden;
+}
+
+.shimmer::after {
+  content: "";
+  @apply absolute inset-0 -translate-x-full;
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0,
+    rgba(255, 255, 255, 0.2) 20%,
+    rgba(255, 255, 255, 0.5) 60%,
+    rgba(255, 255, 255, 0)
+  );
+  animation: shimmer 2s infinite;
+}
+
+/* Fancy button effects */
+.button-glow {
+  @apply relative overflow-hidden;
+}
+
+.button-glow::after {
+  content: "";
+  @apply absolute inset-0 rounded-md opacity-0 transition-opacity;
+  box-shadow: 0 0 15px 5px hsl(var(--primary) / 0.5);
+}
+
+.button-glow:hover::after {
+  @apply opacity-100;
+}
+
+/* Glass blur for modals and overlays */
+.glass-blur {
+  @apply bg-white/30 dark:bg-slate-900/30 backdrop-blur-xl border border-white/20 dark:border-slate-700/20;
+}
+
+/* Advanced card styles */
+.card-gradient-border {
+  @apply relative rounded-lg p-[1px] bg-gradient-to-r from-primary to-secondary;
+}
+
+.card-gradient-border > div {
+  @apply rounded-lg bg-card h-full w-full;
+}
+
+/* Custom task styles */
+.task-item {
+  @apply transition-all duration-200 hover:translate-y-[-2px] hover:shadow-md;
+}
+
+.task-item.completed {
+  @apply opacity-75;
+}
+
+.task-item.priority-high {
+  @apply border-l-4 border-destructive;
+}
+
+.task-item.priority-medium {
+  @apply border-l-4 border-warning;
+}
+
+.task-item.priority-low {
+  @apply border-l-4 border-success;
+}
+
+/* Sidebar active state */
+.sidebar-item.active {
+  @apply bg-sidebar-accent/10 text-sidebar-accent font-medium;
+}
+
+/* Form elements with consistent styling */
+.form-input {
+  @apply rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background 
+  file:border-0 file:bg-transparent file:text-sm file:font-medium 
+  placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 
+  focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+.form-label {
+  @apply text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70;
+}
+
+/* Modern card styles */
+.card-hover {
+  @apply transition-all duration-200 hover:shadow-raised hover:translate-y-[-2px];
+}
+
+/* Loading animations */
+.loading-dots {
+  @apply flex space-x-1 items-center justify-center;
+}
+
+.loading-dots > div {
+  @apply w-2 h-2 bg-current rounded-full animate-pulse-subtle;
+}
+
+.loading-dots > div:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.loading-dots > div:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* Status badges */
+.status-badge {
+  @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+}
+
+.status-badge.in-progress {
+  @apply bg-warning/20 text-warning-foreground;
+}
+
+.status-badge.completed {
+  @apply bg-success/20 text-success-foreground;
+}
+
+.status-badge.pending {
+  @apply bg-muted/60 text-muted-foreground;
+}
+
+.status-badge.overdue {
+  @apply bg-destructive/20 text-destructive-foreground;
+}
+
+/* Chart improvements */
+.chart-container {
+  @apply p-4 rounded-lg bg-card shadow-card;
+}
+
+.chart-legend {
+  @apply flex flex-wrap gap-2 text-sm mt-4;
+}
+
+.chart-legend-item {
+  @apply flex items-center gap-1;
+}
+
+.chart-legend-color {
+  @apply w-3 h-3 rounded-sm;
+}
+
+/* Time related inputs */
+.time-input {
+  @apply grid grid-cols-3 gap-1;
+}
+
+/* Calendar day styles */
+.calendar-day {
+  @apply relative rounded-md;
+}
+
+.calendar-day.has-tasks::after {
+  content: '';
+  @apply absolute bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-primary rounded-full;
+}
+
+.calendar-day.today {
+  @apply bg-primary text-primary-foreground;
+}
+
+/* Kanban board styles */
+.kanban-column {
+  @apply flex flex-col min-w-[280px] max-w-[280px] h-full rounded-lg border border-border bg-card/50 p-2;
+}
+
+.kanban-card {
+  @apply p-3 mb-2 rounded-md bg-background border border-border shadow-subtle cursor-pointer;
+}
+
+/* Tags styling */
+.tag {
+  @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-primary/10 text-primary-foreground;
+}
+
+.tag-input-container {
+  @apply flex flex-wrap gap-1 p-2 rounded-md border border-input focus-within:ring-2 focus-within:ring-ring;
+}

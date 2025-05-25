@@ -2,11 +2,19 @@ import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { getAuthUserId, verify } from '@/lib/auth';
 
-interface Params {
-  params: { inviteId: string };
+// Define the type for context params
+interface Context {
+  params: {
+    inviteId: string;
+  };
 }
 
-export async function DELETE(request: NextRequest, { params }: Params) {
+export async function DELETE(
+  request: NextRequest,
+  context: Context
+) {
+  const { inviteId } = context.params;
+
   const authUser = await verify(request);
 
   if (!authUser) {
@@ -42,11 +50,6 @@ export async function DELETE(request: NextRequest, { params }: Params) {
   }
 
   try {
-    // TODO: Add role check to verify this user is an admin
-    
-    // Fix: Use the inviteId directly without destructuring to avoid the async params issue
-    const inviteId = params.inviteId;
-    
     // Check if the invite exists
     const checkStmt = db.prepare('SELECT id FROM user_invites WHERE id = ?');
     const existingInvite = checkStmt.get(inviteId);

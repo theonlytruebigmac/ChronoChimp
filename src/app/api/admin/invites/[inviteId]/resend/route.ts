@@ -8,11 +8,17 @@ import { getAuthUserId, verify } from '@/lib/auth';
 const SALT_ROUNDS = 10;
 const INVITE_EXPIRY_HOURS = 72; // 3 days
 
-interface Params {
-  params: { inviteId: string };
+// Define the type for context params
+interface Context {
+  params: {
+    inviteId: string;
+  };
 }
 
-export async function POST(request: NextRequest, { params }: Params) {
+export async function POST(
+  request: NextRequest,
+  context: Context
+) {
   const authUser = await verify(request);
 
   if (!authUser) {
@@ -48,8 +54,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   }
 
   try {
-    // Fix: Access inviteId directly without destructuring
-    const inviteId = params.inviteId;
+    const { inviteId } = context.params;
     
     // Check if the invite exists
     const getInviteStmt = db.prepare('SELECT id, email, role FROM user_invites WHERE id = ? AND status = ?');

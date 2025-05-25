@@ -1,0 +1,112 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  /* Updated to use Inter font variable */
+  font-family: var(--font-inter), Arial, Helvetica, sans-serif;
+}
+
+@layer base {
+  :root {
+    --background: 39 75% 92%;       /* Cream #F9EFDB */
+    --foreground: 20 14% 4%;       /* Almost Black (for text) */
+
+    --card: 39 30% 97%;            /* Off-white #FDFBF7 */
+    --card-foreground: 20 14% 4%;  /* Almost Black */
+
+    --popover: 39 75% 92%;         /* Cream #F9EFDB */
+    --popover-foreground: 20 14% 4%;
+
+    --primary: 96 26% 67%;         /* Sage Green #9DBC98 */
+    --primary-foreground: 20 14% 4%;
+
+    --secondary: 43 52% 87%;       /* Beige #EBD9B4 */
+    --secondary-foreground: 20 14% 4%;
+
+    --muted: 35 25% 98%;          /* Soft off-white #FEFDF9 */
+    --muted-foreground: 20 10% 35%;
+
+    --accent: 180 16% 46%;        /* Blue-Green #638889 */
+    --accent-foreground: 0 0% 100%;
+
+    --border: 43 52% 87%;         /* Beige #EBD9B4 */
+    --input: 43 52% 87%;          /* Beige #EBD9B4 */
+    --ring: 180 16% 46%;          /* Blue-Green #638889 */
+
+    --radius: 0.5rem;
+
+    /* Chart colors - can be adjusted later based on theme */
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+
+    /* Sidebar specific colors - aliased to main theme */
+    --sidebar-background: var(--background);
+    --sidebar-foreground: var(--foreground);
+    --sidebar-primary: var(--primary);
+    --sidebar-primary-foreground: var(--primary-foreground);
+    --sidebar-accent: var(--accent);
+    --sidebar-accent-foreground: var(--accent-foreground);
+    --sidebar-border: var(--border);
+    --sidebar-ring: var(--ring);
+  }
+
+  .dark {
+    --background: 200 14% 19%;      /* Dark Teal #2C3333 */
+    --foreground: 180 39% 95%;      /* Light Mint #E7F6F2 */
+
+    --card: 197 27% 31%;            /* Blue Gray #395B64 */
+    --card-foreground: 180 39% 95%; /* Light Mint #E7F6F2 */
+
+    --popover: 197 27% 31%;         /* Blue Gray #395B64 */
+    --popover-foreground: 180 39% 95%;
+
+    --primary: 180 28% 72%;         /* Light Blue Gray #A5C9CA */
+    --primary-foreground: 200 14% 19%;
+
+    --secondary: 197 27% 31%;       /* Blue Gray #395B64 */
+    --secondary-foreground: 180 39% 95%;
+
+    --muted: 197 27% 25%;          /* Darker Blue Gray */
+    --muted-foreground: 180 39% 85%;
+
+    --accent: 180 28% 72%;         /* Light Blue Gray #A5C9CA */
+    --accent-foreground: 200 14% 19%;
+
+    --destructive: 0 72% 51%;      /* Red */
+    --destructive-foreground: 180 39% 95%;
+
+    --border: 197 27% 31%;         /* Blue Gray #395B64 */
+    --input: 197 27% 31%;          /* Blue Gray #395B64 */
+    --ring: 180 28% 72%;           /* Light Blue Gray #A5C9CA */
+
+    /* Chart colors - dark theme adjustments */
+    --chart-1: 200 14% 19%;        /* #2C3333 */
+    --chart-2: 197 27% 31%;        /* #395B64 */
+    --chart-3: 180 28% 72%;        /* #A5C9CA */
+    --chart-4: 180 39% 95%;        /* #E7F6F2 */
+    --chart-5: 197 27% 45%;        /* Lighter Blue Gray */
+    
+    /* Sidebar specific colors - aliased to main theme */
+    --sidebar-background: var(--background);
+    --sidebar-foreground: var(--foreground);
+    --sidebar-primary: var(--primary);
+    --sidebar-primary-foreground: var(--primary-foreground);
+    --sidebar-accent: var(--accent);
+    --sidebar-accent-foreground: var(--accent-foreground);
+    --sidebar-border: var(--border);
+    --sidebar-ring: var(--ring);
+  }
+}
+
+@layer base {
+  /* * {             // This global border rule was removed
+    @apply border-border; 
+  } */
+  body {
+    @apply bg-background text-foreground;
+  }
+}

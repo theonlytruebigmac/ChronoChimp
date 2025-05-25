@@ -33,13 +33,20 @@ type UserWithPreferencesAndSettings = User & {
 const UpdateProfileSchema = z.object({
   name: z.string().min(1, { message: "Name cannot be empty." }).optional(),
   email: z.string().email({ message: "Invalid email address." }).optional(),
-  avatarUrl: z.string().url({ message: "Invalid URL for avatar." }).or(z.string().startsWith("data:image/", { message: "Avatar URL must be a valid URL or data URI."})).optional().nullable(),
+  avatarUrl: z.union([
+    z.string().url({ message: "Invalid URL for avatar." }),
+    z.string().startsWith("data:image/", { message: "Data URI must start with 'data:image/'" }),
+    z.literal(""),
+    z.null()
+  ]).optional().nullable(),
   emailNotificationsEnabled: z.boolean().optional(),
   inAppNotificationsEnabled: z.boolean().optional(),
   isTwoFactorEnabled: z.boolean().optional(),
   smtpHost: z.string().optional().nullable(),
-  smtpPort: z.number().int().positive().optional().nullable(),
-  smtpEncryption: z.enum(['none', 'ssl', 'starttls']).optional().nullable(),
+  smtpPort: z.number().int().positive({ message: "Port must be a positive integer." }).optional().nullable(),
+  smtpEncryption: z.enum(['none', 'ssl', 'starttls'], { 
+    errorMap: () => ({ message: "Encryption must be one of: none, ssl, starttls" }) 
+  }).optional().nullable(),
   smtpUsername: z.string().optional().nullable(),
   smtpPassword: z.string().optional().nullable(),
   smtpSendFrom: z.string().email({ message: "Invalid 'Send From' email address."}).optional().nullable(),
@@ -137,9 +144,40 @@ export async function PUT(request: NextRequest) {
   
   try {
     const body = await request.json();
+    
+    // Pre-process port value if it's empty or invalid
+    if (body.smtpPort === '' || body.smtpPort === 0 || body.smtpPort === null || body.smtpPort === undefined) {
+      body.smtpPort = null; // Convert empty/invalid ports to null
+    }
+    
+    // Pre-process avatarUrl
+    if (body.avatarUrl === '') {
+      body.avatarUrl = null; // Convert empty string to null for avatarUrl
+    }
+    
+    // Pre-process empty strings for strings that should be nullable
+    ['smtpHost', 'smtpUsername', 'smtpPassword', 'smtpSendFrom', 'smtpEncryption'].forEach(field => {
+      if (body[field] === '') {
+        body[field] = null;
+      }
+    });
+    
+    // Validate the body after preprocessing
     const validationResult = UpdateProfileSchema.safeParse(body);
 
     if (!validationResult.success) {
+      console.error('Profile validation error:', validationResult.error.flatten());
+      console.log('Original request body (before validation):', body);
+      
+      // Additional debug info for avatarUrl field specifically
+      if (body.avatarUrl !== undefined) {
+        console.log('Avatar URL type:', typeof body.avatarUrl);
+        if (typeof body.avatarUrl === 'string') {
+          console.log('Avatar URL length:', body.avatarUrl.length);
+          console.log('Avatar URL starts with:', body.avatarUrl.substring(0, 30) + '...');
+        }
+      }
+      
       return NextResponse.json({ error: 'Invalid input.', details: validationResult.error.flatten().fieldErrors }, { status: 400 });
     }
     

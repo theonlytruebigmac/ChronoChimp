@@ -2,32 +2,28 @@ import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { getAuthUserId } from '@/lib/auth';
 
-interface ApiResponse {
-  message?: string;
-  error?: string;
-}
+// This endpoint needs Node.js runtime for database operations
+export const runtime = 'nodejs';
+
+// Use the proper type definition for Next.js App Router
+type Params = {
+  params: {
+    apiKeyId: string;
+  };
+};
 
 export async function DELETE(
   request: NextRequest,
-  { params: { apiKeyId } }: { params: { apiKeyId: string } }
-): Promise<NextResponse<ApiResponse>> {
+  { params }: { params: { apiKeyId: string } }
+) {
+  const apiKeyId = params.apiKeyId;
   const userId = await getAuthUserId(request);
   
   if (!userId) {
-    const authHeader = request.headers.get('Authorization');
-    const xUserId = request.headers.get('X-User-Id');
-    
-    console.debug("Auth failure in /api/me/api_keys/[apiKeyId]:", {
-      hasAuthHeader: !!authHeader,
-      headerUserId: xUserId
-    });
-    
     return NextResponse.json(
       { 
         error: 'Unauthorized',
-        details: 'This endpoint requires authentication. You can authenticate using either:\n' +
-                '1. Session token cookie (for browser requests)\n' +
-                '2. API key in Authorization header (for API requests, format: "Bearer YOUR_API_KEY")'
+        details: 'This endpoint requires authentication.'
       },
       { 
         status: 401,
@@ -39,29 +35,28 @@ export async function DELETE(
     );
   }
 
-  if (!apiKeyId) {
-    return NextResponse.json({ error: 'API key ID is required' }, { status: 400 });
-  }
-
   try {
-    // Ensure API key exists and belongs to user before deleting
-    const checkStmt = db.prepare('SELECT id FROM api_keys WHERE id = ? AND userId = ?');
-    const existingKey = checkStmt.get(apiKeyId, userId);
+    const now = new Date().toISOString();
     
-    if (!existingKey) {
-      return NextResponse.json({ error: 'API key not found or not owned by user' }, { status: 404 });
-    }
-
-    // Delete the key
-    const deleteStmt = db.prepare('DELETE FROM api_keys WHERE id = ? AND userId = ?');
-    const result = deleteStmt.run(apiKeyId, userId);
-
+    // Soft delete by marking as revoked
+    const updateStmt = db.prepare(`
+      UPDATE api_keys 
+      SET revoked = 1
+      WHERE id = ? AND userId = ?
+    `);
+    
+    const result = updateStmt.run(apiKeyId, userId);
+    
     if (result.changes === 0) {
-      return NextResponse.json({ error: 'Failed to delete API key' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'API key not found or unauthorized' },
+        { status: 404 }
+      );
     }
-    
-    return NextResponse.json({ message: `API key ${apiKeyId} revoked successfully` });
+
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error(`Failed to revoke API key ${apiKeyId}:`, error);
-    return NextResponse.json({ error: 'Internal server error while revoking API key' }, { status: 500 });
-  }}
+    console.error('Failed to revoke API key:', error);
+    return NextResponse.json({ error: 'Failed to revoke API key' }, { status: 500 });
+  }
+}

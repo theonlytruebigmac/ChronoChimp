@@ -11,10 +11,12 @@ export interface ApiKey {
   name: string;
   hashedKey: string;
   last4: string;
+  keyPrefix: string;
   fullKey?: string; // Only for immediate display after creation
   createdAt: string;
   expiresAt?: string | null; // Allow null
   lastUsedAt?: string | null; // Allow null
+  revoked?: boolean;
   userId?: string;
 }
 
@@ -42,6 +44,11 @@ async function hashAPIKey(key: string): Promise<string> {
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Add helper function to generate key prefix
+function generateKeyPrefix(): string {
+  return 'cc_' + Math.random().toString(36).substring(2, 7);
 }
 
 export async function GET(request: NextRequest) {
@@ -74,9 +81,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Fetch API keys directly from database
     const stmt = db.prepare(`
-      SELECT id, name, hashedKey, last4, createdAt, expiresAt, lastUsedAt
+      SELECT id, name, hashedKey, last4, createdAt, expiresAt, lastUsedAt, revoked
       FROM api_keys 
       WHERE userId = ? AND revoked = 0
       ORDER BY createdAt DESC
@@ -150,16 +156,22 @@ export async function POST(request: NextRequest) {
     // Hash the API key for storage
     const hashedKey = await hashAPIKey(fullKey);
 
+    const keyPrefix = generateKeyPrefix();
+
     // Store the API key in the database
     const stmt = db.prepare(`
-      INSERT INTO api_keys (id, userId, name, hashedKey, last4, createdAt, expiresAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO api_keys (
+        id, userId, name, keyPrefix, hashedKey, last4, 
+        createdAt, expiresAt, revoked
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
     `);
     
     stmt.run(
       newApiKeyId,
       userId,
       name.trim(),
+      keyPrefix,
       hashedKey,
       last4,
       createdAtIso,
@@ -171,6 +183,7 @@ export async function POST(request: NextRequest) {
       name: name.trim(),
       hashedKey,
       last4,
+      keyPrefix: fullKey.substring(0, 8), // Added keyPrefix
       fullKey, // Only returned once during creation
       createdAt: createdAtIso,
       expiresAt: expiresAtIso,

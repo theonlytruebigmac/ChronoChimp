@@ -148,6 +148,7 @@ const createApiKeysTable = `
     id TEXT PRIMARY KEY,
     userId TEXT NOT NULL,
     name TEXT NOT NULL,
+    keyPrefix TEXT NOT NULL, -- Added keyPrefix column
     hashedKey TEXT NOT NULL UNIQUE,
     last4 TEXT NOT NULL,
     createdAt TEXT DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ', 'now')),
@@ -165,6 +166,17 @@ const createApiKeysTable = `
   CREATE INDEX IF NOT EXISTS idx_api_keys_status ON api_keys(revoked, expiresAt);
 `;
 db.exec(createApiKeysTable);
+
+// Add keyPrefix column to api_keys table if it doesn't exist (for existing databases)
+try {
+  const stmt = db.prepare(`PRAGMA table_info(api_keys)`);
+  const existingColumns = stmt.all() as { name: string }[];
+  if (!existingColumns.some(ec => ec.name === 'keyPrefix')) {
+    db.exec(`ALTER TABLE api_keys ADD COLUMN keyPrefix TEXT`);
+  }
+} catch (error) {
+  console.warn(`Could not check/add column keyPrefix to api_keys table:`, error);
+}
 
 // Create password_reset_tokens table
 const createPasswordResetTokensTable = `

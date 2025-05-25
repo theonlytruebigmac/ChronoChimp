@@ -1,0 +1,324 @@
+/* Layout utility classes for ChronoChimp */
+
+/* Flexbox layouts */
+.flex-center {
+  @apply flex items-center justify-center;
+}
+
+.flex-between {
+  @apply flex items-center justify-between;
+}
+
+.flex-start {
+  @apply flex items-center justify-start;
+}
+
+.flex-end {
+  @apply flex items-center justify-end;
+}
+
+.flex-col-center {
+  @apply flex flex-col items-center justify-center;
+}
+
+.flex-col-between {
+  @apply flex flex-col justify-between;
+}
+
+/* Grid layouts */
+.grid-auto-fit {
+  @apply grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))];
+}
+
+.grid-auto-fill {
+  @apply grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))];
+}
+
+/* Container utilities */
+.container-sm {
+  @apply mx-auto max-w-3xl px-4 sm:px-6 lg:px-8;
+}
+
+.container-md {
+  @apply mx-auto max-w-5xl px-4 sm:px-6 lg:px-8;
+}
+
+.container-lg {
+  @apply mx-auto max-w-7xl px-4 sm:px-6 lg:px-8;
+}
+
+/* Responsive spacers */
+.spacer-y-sm {
+  @apply my-2 md:my-3 lg:my-4;
+}
+
+.spacer-y-md {
+  @apply my-4 md:my-6 lg:my-8;
+}
+
+.spacer-y-lg {
+  @apply my-6 md:my-8 lg:my-12;
+}
+
+.spacer-x-sm {
+  @apply mx-2 md:mx-3 lg:mx-4;
+}
+
+.spacer-x-md {
+  @apply mx-4 md:mx-6 lg:mx-8;
+}
+
+.spacer-x-lg {
+  @apply mx-6 md:mx-8 lg:mx-12;
+}
+
+/* Responsive padding */
+.responsive-p {
+  @apply p-4 md:p-6 lg:p-8;
+}
+
+.responsive-px {
+  @apply px-4 md:px-6 lg:px-8;
+}
+
+.responsive-py {
+  @apply py-4 md:py-6 lg:py-8;
+}
+
+/* Page layouts */
+.page-container {
+  @apply container mx-auto px-4 py-6 md:px-6 md:py-8 lg:px-8 lg:py-12;
+}
+
+.page-header {
+  @apply mb-6 flex flex-col space-y-2 md:mb-8 md:flex-row md:items-center md:justify-between md:space-y-0;
+}
+
+.page-title {
+  @apply text-3xl font-bold tracking-tight md:text-4xl;
+}
+
+.page-description {
+  @apply text-muted-foreground text-lg;
+}
+
+/* Section layouts */
+.section {
+  @apply py-8 md:py-12 lg:py-16;
+}
+
+.section-header {
+  @apply mb-6 text-center md:mb-10;
+}
+
+.section-title {
+  @apply text-2xl font-bold md:text-3xl lg:text-4xl;
+}
+
+.section-description {
+  @apply mx-auto mt-3 max-w-2xl text-muted-foreground text-lg;
+}
+
+/* Cards grid */
+.cards-grid {
+  @apply grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4;
+}
+
+.cards-grid-sm {
+  @apply grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4;
+}
+
+.cards-grid-lg {
+  @apply grid gap-8 md:grid-cols-2 lg:grid-cols-3;
+}
+
+/* Split layouts */
+.split-layout {
+  @apply grid gap-8 md:grid-cols-2;
+}
+
+.split-layout-2-1 {
+  @apply grid gap-8 md:grid-cols-3;
+}
+
+.split-layout-2-1 > *:first-child {
+  @apply md:col-span-2;
+}
+
+.split-layout-1-2 {
+  @apply grid gap-8 md:grid-cols-3;
+}
+
+.split-layout-1-2 > *:last-child {
+  @apply md:col-span-2;
+}
+
+/* Responsive stacking */
+.stack-horizontal {
+  @apply flex flex-col gap-4 sm:flex-row sm:items-center;
+}
+
+.stack-vertical {
+  @apply flex flex-col gap-4;
+}
+
+/* Form layouts */
+.form-grid {
+  @apply grid gap-6;
+}
+
+.form-grid-2 {
+  @apply grid gap-6 md:grid-cols-2;
+}
+
+.form-row {
+  @apply flex flex-col gap-4 sm:flex-row;
+}
+
+.form-section {
+  @apply space-y-4 rounded-lg border p-4;
+}
+
+.form-section-title {
+  @apply text-lg font-medium;
+}
+
+/* Dashboard layouts */
+.dashboard-grid {
+  @apply grid gap-6 md:grid-cols-2 lg:grid-cols-3;
+}
+
+.dashboard-grid-main {
+  @apply grid gap-6 md:grid-cols-3;
+}
+
+.dashboard-grid-main > *:first-child {
+  @apply md:col-span-2 md:row-span-2;
+}
+
+/* Table layouts */
+.table-container {
+  @apply overflow-x-auto rounded-lg border;
+}
+
+.table-header {
+  @apply bg-muted px-4 py-3;
+}
+
+.table-footer {
+  @apply bg-muted px-4 py-3;
+}
+
+/* Mobile optimizations */
+.mobile-nav {
+  @apply fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t bg-background p-2 md:hidden;
+}
+
+.mobile-nav-item {
+  @apply flex flex-col items-center gap-1 p-2 text-xs;
+}
+
+/* Sidebar layouts */
+.sidebar-layout {
+  @apply grid md:grid-cols-[280px_1fr] lg:grid-cols-[280px_1fr];
+}
+
+.sidebar-layout-wide {
+  @apply grid md:grid-cols-[320px_1fr] lg:grid-cols-[320px_1fr];
+}
+
+/* Z-index utilities */
+.z-1 {
+  @apply z-[1];
+}
+
+.z-2 {
+  @apply z-[2];
+}
+
+.z-3 {
+  @apply z-[3];
+}
+
+.z-4 {
+  @apply z-[4];
+}
+
+.z-5 {
+  @apply z-[5];
+}
+
+.z-overlay {
+  @apply z-[100];
+}
+
+.z-modal {
+  @apply z-[1000];
+}
+
+.z-tooltip {
+  @apply z-[1500];
+}
+
+.z-toast {
+  @apply z-[2000];
+}
+
+/* Utility for sticky headers */
+.sticky-header {
+  @apply sticky top-0 z-10 bg-background/80 backdrop-blur-sm;
+}
+
+/* Scrollable containers */
+.scrollable-y {
+  @apply max-h-[70vh] overflow-y-auto pr-1;
+}
+
+.scrollable-x {
+  @apply max-w-full overflow-x-auto pb-1;
+}
+
+/* Content containers */
+.content-container {
+  @apply mx-auto max-w-prose;
+}
+
+.content-narrow {
+  @apply mx-auto max-w-lg;
+}
+
+.content-wide {
+  @apply mx-auto max-w-screen-xl;
+}
+
+/* Media queries for large screens */
+@media (min-width: 1536px) {
+  .container-xl {
+    @apply mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8;
+  }
+  
+  .content-xl {
+    @apply mx-auto max-w-screen-2xl;
+  }
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  .print-only {
+    display: block !important;
+  }
+  
+  body {
+    font-size: 12pt;
+  }
+  
+  .page-container {
+    max-width: 100%;
+    padding: 0;
+    margin: 0;
+  }
+}

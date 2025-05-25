@@ -537,6 +537,15 @@ paths:
       security:
         - bearerAuth: []
       requestBody:
+        parameters:
+          - name: title
+            in: body
+            required: true
+            description: Title of the task
+            schema:
+              type: string
+              minLength: 1
+              example: "Implement user authentication"
         required: true
         content:
           application/json:
