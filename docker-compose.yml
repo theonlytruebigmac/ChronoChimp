@@ -19,7 +19,7 @@ services:
   # Production Environment
   prod:
     container_name: chronochimp_prod
-    image: chronochimp_prod  #ghcr.io/theonlytruebigmac/chronochimp:main
+    image: ghcr.io/theonlytruebigmac/chronochimp:main
     restart: unless-stopped
     env_file:
       - .env.production

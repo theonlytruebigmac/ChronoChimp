@@ -33,6 +33,8 @@ ENV NODE_ENV=production
 RUN npm rebuild better-sqlite3 --build-from-source=better-sqlite3
 
 # 7) Finally, build your Next.js application
+# Use a default ENCRYPTION_KEY for build time only (will be replaced at runtime)
+ENV ENCRYPTION_KEY=build_time_placeholder_key_3d8f7g9a3s5d6f4g321h654j321k654l
 RUN npm run build
 
 # Stage 2: Runner
@@ -58,6 +60,10 @@ COPY --from=builder /app/src/styles ./src/styles
 # Optional data dir
 RUN mkdir -p .data && chown -R node:node .data
 
+# Create a startup script that checks for required environment variables
+RUN echo '#!/bin/bash\nif [ -z "$ENCRYPTION_KEY" ]; then\n  echo "ERROR: ENCRYPTION_KEY environment variable is required"\n  exit 1\nfi\nexec node server.js' > /app/start.sh
+RUN chmod +x /app/start.sh
+
 USER node
 EXPOSE 3000
-CMD ["node", "server.js"]
+CMD ["/app/start.sh"]
