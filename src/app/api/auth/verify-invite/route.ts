@@ -12,8 +12,6 @@ export async function GET(request: Request) {
       return NextResponse.json({ valid: false, error: 'No token provided' }, { status: 400 });
     }
 
-    console.log('Verifying invite token:', token.substring(0, 8) + '...');
-
     // Find the invite by matching against the raw token
     // This requires comparing the provided token against each stored hash
     const stmt = db.prepare(`SELECT id, email, role, token, expiresAt, status FROM user_invites WHERE status = 'pending'`);

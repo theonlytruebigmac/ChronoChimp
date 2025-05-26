@@ -76,11 +76,6 @@ export default function SettingsPage() {
   const [showBackupCodesDialog, setShowBackupCodesDialog] = useState(false);
   const [justEnabled2FA, setJustEnabled2FA] = useState(false);
   
-  // Add debugging for showBackupCodesDialog state (can be removed after testing)
-  useEffect(() => {
-    console.log('[SettingsPage] showBackupCodesDialog state changed:', showBackupCodesDialog);
-  }, [showBackupCodesDialog]);
-  
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -114,7 +109,6 @@ export default function SettingsPage() {
   // Handle showing backup codes dialog when 2FA is just enabled
   useEffect(() => {
     if (justEnabled2FA && userProfile?.isTwoFactorEnabled) {
-      console.log('[SettingsPage] 2FA just enabled and confirmed in profile, showing backup codes dialog');
       setJustEnabled2FA(false);
       setShowBackupCodesDialog(true);
     }
@@ -241,7 +235,6 @@ export default function SettingsPage() {
         smtpSendFrom: smtpSendFrom
     };
     
-    console.log('Saving profile data:', dataToUpdate);
     profileUpdateMutation.mutate(dataToUpdate);
   };
 
@@ -413,9 +406,6 @@ export default function SettingsPage() {
       smtpPassword: smtpPassword,
       smtpSendFrom: smtpSendFrom
     };
-    
-    // Log the data being sent to help troubleshoot
-    console.log('Saving SMTP settings:', smtpDataToSave);
     
     profileUpdateMutation.mutate(smtpDataToSave);
   };
@@ -684,7 +674,6 @@ export default function SettingsPage() {
 
   // Prevent premature closing of the BackupCodesDialog
   const handleBackupCodesDialogClose = () => {
-    console.log('[SettingsPage] BackupCodesDialog explicitly closed by user');
     setShowBackupCodesDialog(false);
   };
 

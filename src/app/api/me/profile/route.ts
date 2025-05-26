@@ -183,16 +183,6 @@ export async function PUT(request: NextRequest) {
 
     if (!validationResult.success) {
       console.error('Profile validation error:', validationResult.error.flatten());
-      console.log('Original request body (before validation):', body);
-      
-      // Additional debug info for avatarUrl field specifically
-      if (body.avatarUrl !== undefined) {
-        console.log('Avatar URL type:', typeof body.avatarUrl);
-        if (typeof body.avatarUrl === 'string') {
-          console.log('Avatar URL length:', body.avatarUrl.length);
-          console.log('Avatar URL starts with:', body.avatarUrl.substring(0, 30) + '...');
-        }
-      }
       
       return NextResponse.json({ error: 'Invalid input.', details: validationResult.error.flatten().fieldErrors }, { status: 400 });
     }

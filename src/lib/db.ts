@@ -243,8 +243,6 @@ const createIndexes = `
 `;
 db.exec(createIndexes);
 
-// console.log('Database initialized and connected at', dbPath); // Removed for cleaner logs in production
-
 // Helper to safely parse JSON
 export function safeJSONParse<T>(jsonString: string | null | undefined, defaultValue: T): T {
   if (jsonString === null || jsonString === undefined) {

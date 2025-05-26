@@ -41,12 +41,8 @@ export function LoginForm() {
     e.preventDefault();
     setIsLoading(true);
 
-    try {
-      console.log('Login attempt:', { email }); // Log email for debugging
-      
-      const requestBody = JSON.stringify({ email, password });
-      console.log('Request body:', requestBody); // Log the stringified request
-      
+    try {      
+      const requestBody = JSON.stringify({ email, password });      
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
@@ -56,14 +52,7 @@ export function LoginForm() {
         body: requestBody
       });
 
-      console.log('Response status:', response.status); // Log the response status
-      console.log('Response headers:', {
-        type: response.headers.get('content-type'),
-        length: response.headers.get('content-length')
-      });
-
       const data = await response.json();
-      console.log('Response data:', { ...data, password: '[REDACTED]' }); // Log response data (excluding password)
 
       if (!response.ok) {
         throw new Error(data.error || 'Login failed.');
