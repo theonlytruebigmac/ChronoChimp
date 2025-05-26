@@ -33,9 +33,9 @@ ENV NODE_ENV=production
 RUN npm rebuild better-sqlite3 --build-from-source=better-sqlite3
 
 # 7) Finally, build your Next.js application
-# Use a default ENCRYPTION_KEY for build time only (will be replaced at runtime)
-ENV ENCRYPTION_KEY=build_time_placeholder_key_3d8f7g9a3s5d6f4g321h654j321k654l
-RUN npm run build
+# Generate a temporary encryption key at build time (not stored in the final image)
+RUN chmod +x ./scripts/build-key-manager.sh
+RUN ENCRYPTION_KEY=$(./scripts/build-key-manager.sh) npm run build
 
 # Stage 2: Runner
 FROM node:24-bookworm AS runner
@@ -61,9 +61,17 @@ COPY --from=builder /app/src/styles ./src/styles
 RUN mkdir -p .data && chown -R node:node .data
 
 # Create a startup script that checks for required environment variables
-RUN echo '#!/bin/bash\nif [ -z "$ENCRYPTION_KEY" ]; then\n  echo "ERROR: ENCRYPTION_KEY environment variable is required"\n  exit 1\nfi\nexec node server.js' > /app/start.sh
+COPY --from=builder /app/scripts/env-manager.sh ./scripts/
+RUN echo '#!/bin/bash' > /app/start.sh
+RUN echo 'if [ -z "$ENCRYPTION_KEY" ]; then' >> /app/start.sh
+RUN echo '  echo "ERROR: ENCRYPTION_KEY environment variable is required"' >> /app/start.sh
+RUN echo '  exit 1' >> /app/start.sh
+RUN echo 'fi' >> /app/start.sh
+RUN echo 'exec node server.js' >> /app/start.sh
 RUN chmod +x /app/start.sh
+RUN cat /app/start.sh  # Debug: print file to verify it exists
 
 USER node
 EXPOSE 3000
-CMD ["/app/start.sh"]
+# Directly use node as fallback in case the script isn't found
+CMD ["sh", "-c", "if [ -f /app/start.sh ]; then /app/start.sh; else node server.js; fi"]
