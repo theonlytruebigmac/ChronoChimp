@@ -14,7 +14,8 @@
     "rimraf": "^4.0.0",
     "glob": "^9.0.0",
     "npmlog": "^7.0.0",
-    "gauge": "^5.0.0"
+    "gauge": "^5.0.0",
+    "prismjs": "^1.30.0"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",
@@ -67,7 +68,6 @@
     "react-hook-form": "^7.56.4",
     "recharts": "^2.15.3",
     "swagger-ui-dist": "^5.22.0",
-    "swagger-ui-react": "^5.22.0",
     "tailwind-merge": "^3.3.0",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^3.25.28"
