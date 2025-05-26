@@ -29,6 +29,7 @@ body {
 
     --accent: 180 16% 46%;        /* Blue-Green #638889 */
     --accent-foreground: 0 0% 100%;
+    --accent-hex: #638889;
 
     --border: 43 52% 87%;         /* Beige #EBD9B4 */
     --input: 43 52% 87%;          /* Beige #EBD9B4 */
@@ -109,4 +110,25 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+.btn-primary {
+  background-color: var(--accent-hex);
+  color: var(--accent-foreground, #fff);
+  border-radius: var(--radius, 0.5rem);
+  transition: background 0.2s;
+}
+
+.btn-primary:hover, .btn-primary:focus {
+  background-color: #557373;
+}
+
+.hover\:btn-primary:hover {
+  background-color: var(--accent-hex);
+  color: var(--accent-foreground, #fff);
+  transition: background 0.2s;
+}
+
+.hover\:btn-primary:active {
+  background-color: #557373;
 }

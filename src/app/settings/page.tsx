@@ -21,6 +21,9 @@ import { fetchUserProfile, updateUserProfile, updateUserPassword, fetchUserApiKe
 import type { ApiKey } from '@/app/api/me/api_keys/route';
 import { Skeleton } from '@/components/ui/skeleton';
 import QRCode from 'qrcode';
+import { TabsContent } from '@/components/ui/tabs';
+import { toast } from '@/hooks/use-toast';
+import { BackupCodesDialog } from '@/components/auth/BackupCodesDialog';
 
 
 export default function SettingsPage() {
@@ -66,10 +69,17 @@ export default function SettingsPage() {
   const [isSavingSmtp, setIsSavingSmtp] = useState(false);
 
   const [is2FASetupDialogOpen, setIs2FASetupDialogOpen] = useState(false);
-  const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
   const [twoFactorSecretForDialog, setTwoFactorSecretForDialog] = useState(''); 
-  const [otpCode, setOtpCode] = useState('');
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [showBackupCodesDialog, setShowBackupCodesDialog] = useState(false);
+  const [justEnabled2FA, setJustEnabled2FA] = useState(false);
+  
+  // Add debugging for showBackupCodesDialog state (can be removed after testing)
+  useEffect(() => {
+    console.log('[SettingsPage] showBackupCodesDialog state changed:', showBackupCodesDialog);
+  }, [showBackupCodesDialog]);
   
   useEffect(() => {
     setMounted(true);
@@ -100,6 +110,15 @@ export default function SettingsPage() {
       setSmtpSendFrom(userProfile.smtpSendFrom || '');
     }
   }, [userProfile]);
+
+  // Handle showing backup codes dialog when 2FA is just enabled
+  useEffect(() => {
+    if (justEnabled2FA && userProfile?.isTwoFactorEnabled) {
+      console.log('[SettingsPage] 2FA just enabled and confirmed in profile, showing backup codes dialog');
+      setJustEnabled2FA(false);
+      setShowBackupCodesDialog(true);
+    }
+  }, [justEnabled2FA, userProfile?.isTwoFactorEnabled]);
 
   const { data: apiKeys = [], isLoading: isLoadingApiKeys, isError: isApiKeysError, error: apiKeysError, refetch: refetchApiKeys } = useQuery<ApiKey[], Error>({
     queryKey: ['userApiKeys'],
@@ -235,11 +254,17 @@ export default function SettingsPage() {
       toast({ title: "Error", description: "New passwords do not match.", variant: "destructive" });
       return;
     }
-     if (passwordData.newPassword.length < 6) {
+    if (passwordData.newPassword.length < 6) {
       toast({ title: "Error", description: "New password must be at least 6 characters long.", variant: "destructive" });
       return;
     }
     passwordUpdateMutation.mutate(passwordData);
+  };
+
+  // New submit handler for the password change form
+  const handlePasswordSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    handleChangePassword();
   };
 
   const handleGenerateNewApiKey = () => {
@@ -449,9 +474,13 @@ export default function SettingsPage() {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to initiate 2FA setup.');
       }
-      const { secret, otpAuthUrl } = await response.json();
+      const { secret, encryptedSecret, otpAuthUrl } = await response.json();
       setTwoFactorSecretForDialog(secret);
 
+      // Store the encrypted secret in state
+      const encryptedSecretKey = `encryptedSecret_${Date.now()}`;
+      sessionStorage.setItem(encryptedSecretKey, encryptedSecret);
+      
       // Use the correct options type for QRCode.toDataURL
       // and properly await the promise
       const qrDataUrl = await QRCode.toDataURL(otpAuthUrl);
@@ -468,11 +497,28 @@ export default function SettingsPage() {
   const handleVerifyAndEnable2FA = async () => {
     setIsVerifyingOtp(true);
     try {
+      // Get the encrypted secret from session storage
+      const encryptedSecretKey = Array.from(Array(sessionStorage.length))
+        .map((_, i) => sessionStorage.key(i))
+        .find(k => k && k.startsWith('encryptedSecret_'));
+      
+      const encryptedSecret = encryptedSecretKey ? sessionStorage.getItem(encryptedSecretKey) : null;
+      
       const response = await fetch('/api/me/2fa/setup-verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ otp: otpCode, secret: twoFactorSecretForDialog }), 
+        body: JSON.stringify({ 
+          otp: otpCode, 
+          secret: twoFactorSecretForDialog,
+          encryptedSecret: encryptedSecret
+        }), 
       });
+      
+      // Clean up session storage
+      if (encryptedSecretKey) {
+        sessionStorage.removeItem(encryptedSecretKey);
+      }
+      
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.error || 'OTP verification failed.');
@@ -481,11 +527,18 @@ export default function SettingsPage() {
       await queryClient.invalidateQueries({queryKey: ['userProfile']});
       await queryClient.refetchQueries({queryKey: ['userProfile']}); // Refetch to get updated 2FA status from DB
 
-      toast({ title: "2FA Enabled", description: data.message || "Two-Factor Authentication has been successfully enabled." });
+      toast({ 
+        title: "2FA Enabled", 
+        description: "Two-Factor Authentication has been successfully enabled. Generating backup codes..." 
+      });
+      
+      // Close 2FA setup dialog and reset its state
       setIs2FASetupDialogOpen(false);
       setOtpCode('');
       setTwoFactorSecretForDialog('');
-      // ProfileData will be updated by onSuccess of fetchUserProfile via refetch
+      
+      // Flag that 2FA was just enabled - this will trigger the backup codes dialog via useEffect
+      setJustEnabled2FA(true);
     } catch (err: any) {
       toast({ title: "Invalid OTP", description: err.message || "Please enter a valid 6-digit OTP.", variant: "destructive" });
     } finally {
@@ -629,6 +682,12 @@ export default function SettingsPage() {
     );
   }
 
+  // Prevent premature closing of the BackupCodesDialog
+  const handleBackupCodesDialogClose = () => {
+    console.log('[SettingsPage] BackupCodesDialog explicitly closed by user');
+    setShowBackupCodesDialog(false);
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -705,7 +764,9 @@ export default function SettingsPage() {
               <AccordionContent className="pt-4 space-y-4">
                 <div className="flex items-center justify-between rounded-lg border p-4">
                   <div>
-                    <Label htmlFor="2fa" className="font-medium">Two-Factor Authentication (2FA)</Label>
+                    <Label htmlFor="2fa" className="font-medium text-base flex items-center">
+                      <Shield className="mr-2 h-4 w-4 text-muted-foreground"/> Two-Factor Authentication
+                    </Label>
                     <p className="text-sm text-muted-foreground">
                       Add an extra layer of security to your account.
                     </p>
@@ -719,6 +780,20 @@ export default function SettingsPage() {
                   />
                 </div>
                 
+                {profileData.isTwoFactorEnabled && (
+                  <div className="flex justify-end mt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowBackupCodesDialog(true)}
+                      className="text-xs"
+                    >
+                      <KeyRound className="mr-2 h-3 w-3" />
+                      Manage Backup Codes
+                    </Button>
+                  </div>
+                )}
+                
                 <div className="space-y-4 rounded-lg border p-4 mt-4">
                   <h3 className="font-medium flex items-center gap-2"><KeyRound className="h-4 w-4 text-muted-foreground"/> Change Password</h3>
                   <div className="space-y-2">
@@ -731,7 +806,7 @@ export default function SettingsPage() {
                       onChange={(e) => setPasswordData(p => ({...p, currentPassword: e.target.value}))}
                     />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2 mt-4">
                     <Label htmlFor="newPassword">New Password</Label>
                     <Input 
                       id="newPassword" 
@@ -741,7 +816,7 @@ export default function SettingsPage() {
                       onChange={(e) => setPasswordData(p => ({...p, newPassword: e.target.value}))}
                     />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2 mt-4">
                     <Label htmlFor="confirmNewPassword">Confirm New Password</Label>
                     <Input 
                       id="confirmNewPassword" 
@@ -751,7 +826,7 @@ export default function SettingsPage() {
                       onChange={(e) => setConfirmNewPassword(e.target.value)}
                     />
                   </div>
-                  <Button onClick={handleChangePassword} variant="outline" disabled={passwordUpdateMutation.isPending}>
+                  <Button type="submit" variant="outline" disabled={passwordUpdateMutation.isPending}>
                     {passwordUpdateMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating Password...</> : "Change Password"}
                   </Button>
                 </div>
@@ -1114,10 +1189,11 @@ export default function SettingsPage() {
         }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <TwoFaDialogTitle className="flex items-center"><QrCode className="mr-2 h-5 w-5"/>Setup Two-Factor Authentication</TwoFaDialogTitle>
+            <TwoFaDialogTitle className="flex items-center"><QrCode className="mr-2 h-5 w-5" />Setup Two-Factor Authentication</TwoFaDialogTitle>
             <TwoFaDialogDescription>
               Scan the QR code with your authenticator app (e.g., Google Authenticator, Authy).
               Then, enter the 6-digit code from your app to verify.
+              After verifying your 2FA setup, you'll be able to generate backup codes in case you lose access to your authenticator app.
             </TwoFaDialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
@@ -1173,6 +1249,12 @@ export default function SettingsPage() {
           </TwoFaDialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Backup Codes Dialog */}
+      <BackupCodesDialog 
+        isOpen={showBackupCodesDialog} 
+        onClose={handleBackupCodesDialogClose} 
+      />
 
     </div>
   );

@@ -205,6 +205,20 @@ const createUserInvitesTable = `
 `;
 db.exec(createUserInvitesTable);
 
+// Create the two_factor_backup_codes table if it doesn't exist
+const createBackupCodesTable = `
+  CREATE TABLE IF NOT EXISTS two_factor_backup_codes (
+    id TEXT PRIMARY KEY,
+    userId TEXT NOT NULL,
+    hashedCode TEXT NOT NULL,
+    used INTEGER DEFAULT 0 NOT NULL,
+    usedAt TEXT,
+    createdAt TEXT NOT NULL,
+    FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+  );
+`;
+db.exec(createBackupCodesTable);
+
 // Create indexes for better query performance
 const createIndexes = `
   -- Tasks indexes

@@ -82,6 +82,9 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // Check if 2FA verification is needed for users with 2FA enabled
+  const twoFactorVerified = request.headers.get('X-2FA-Verified') === 'true';
+  
   try {
     const stmt = db.prepare('SELECT id, name, email, role, avatarUrl, joinedDate, emailNotificationsEnabled, inAppNotificationsEnabled, isTwoFactorEnabled, twoFactorSecret, smtpHost, smtpPort, smtpEncryption, smtpUsername, smtpPassword, smtpSendFrom FROM users WHERE id = ?');
     const user = stmt.get(userId) as UserWithPreferencesAndSettings | undefined;
@@ -89,10 +92,23 @@ export async function GET(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: 'Current user profile not found' }, { status: 404 });
     }
+    
     // Ensure boolean values are correctly represented (SQLite stores them as 0 or 1)
     user.emailNotificationsEnabled = !!user.emailNotificationsEnabled;
     user.inAppNotificationsEnabled = !!user.inAppNotificationsEnabled;
     user.isTwoFactorEnabled = !!user.isTwoFactorEnabled;
+    
+    // Check if 2FA is enabled but not verified for this session
+    if (user.isTwoFactorEnabled && !twoFactorVerified) {
+      return NextResponse.json(
+        { 
+          error: '2FA verification required', 
+          requiresTwoFactor: true,
+          userId: user.id
+        }, 
+        { status: 403 }
+      );
+    }
     
     // Ensure nulls for optional fields if they are not set
     user.smtpHost = user.smtpHost || null;

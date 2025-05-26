@@ -57,6 +57,16 @@ export async function fetchUserProfile(): Promise<UserProfile> {
   const response = await fetch(`${API_ME_BASE_URL}/profile`);
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ message: 'Failed to fetch user profile.' }));
+    
+    // Handle 2FA verification requirement
+    if (response.status === 403 && errorData.requiresTwoFactor) {
+      // Redirect to login page with return URL and 2FA requirement
+      const returnUrl = window.location.pathname;
+      window.location.href = `/auth/login?returnUrl=${encodeURIComponent(returnUrl)}&require2fa=true`;
+      // Throw a specific error that can be handled by the UI
+      throw new Error('2FA_VERIFICATION_REQUIRED');
+    }
+    
     throw new Error(errorData.error || 'Failed to fetch user profile');
   }
   return response.json();

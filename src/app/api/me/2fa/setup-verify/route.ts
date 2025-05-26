@@ -1,9 +1,9 @@
 // filepath: /home/fraziersystems/appdata/chronochimp/src/app/api/me/2fa/setup-verify/route.ts
 import { NextResponse, NextRequest } from 'next/server';
 import { z } from 'zod';
-import { authenticator } from 'otplib';
 import { db } from '@/lib/db';
 import { getAuthUserId } from '@/lib/auth';
+import { validateOtp } from '@/lib/2fa-utils';
 
 // This endpoint needs Node.js runtime for database access
 export const runtime = 'nodejs';
@@ -11,6 +11,7 @@ export const runtime = 'nodejs';
 const VerifyOtpSchema = z.object({
   otp: z.string().length(6, { message: "OTP must be 6 digits." }).regex(/^\d+$/, { message: "OTP must only contain digits." }),
   secret: z.string().min(16, { message: "Secret is required and must be at least 16 characters." }), // Typical Base32 secret length
+  encryptedSecret: z.string().optional(), // The encrypted version of the secret
 });
 
 export async function POST(request: NextRequest) {
@@ -50,13 +51,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid input.', details: validationResult.error.flatten().fieldErrors }, { status: 400 });
     }
 
-    const { otp, secret } = validationResult.data;
+    const { otp, secret, encryptedSecret } = validationResult.data;
 
     // Verify the OTP is valid for this secret
-    const isValidOtp = authenticator.verify({ 
-      token: otp, 
-      secret: secret 
-    });
+    const isValidOtp = validateOtp(otp, secret);
 
     if (!isValidOtp) {
       return NextResponse.json({ error: 'Invalid OTP. Please try again.' }, { status: 400 });
@@ -64,10 +62,13 @@ export async function POST(request: NextRequest) {
 
     try {
       // Update user's 2FA settings in the database
-      // Store the secret and mark 2FA as enabled
+      // Store the encrypted secret and mark 2FA as enabled
       const stmt = db.prepare('UPDATE users SET isTwoFactorEnabled = ?, twoFactorSecret = ?, updatedAt = ? WHERE id = ?');
-      // TODO: In a production system, the 'secret' should be encrypted before storing in the database.
-      stmt.run(1, secret, new Date().toISOString(), userId);
+      
+      // Use the encrypted secret if provided, otherwise encrypt it now
+      const secretToStore = encryptedSecret || require('@/lib/encryption').encrypt(secret);
+      
+      stmt.run(1, secretToStore, new Date().toISOString(), userId);
 
       return NextResponse.json({ 
         success: true,

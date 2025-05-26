@@ -9,6 +9,7 @@ interface JWTPayload {
   name: string;
   email: string;
   role: string | undefined;
+  twoFactorVerified?: boolean;
   iat?: number;
   exp?: number;
 }
@@ -232,18 +233,48 @@ export async function middleware(request: NextRequest) {
         throw new Error("JWT_SECRET_NOT_CONFIGURED");
       }
       const secret = new TextEncoder().encode(JWT_SECRET_STRING);
-      const { payload } = await jwtVerify(sessionToken, secret) as { payload: { userId: string; role: string; } };
+      const { payload } = await jwtVerify(sessionToken, secret) as { payload: JWTPayload };
       
       console.debug('[Middleware] Session payload:', {
-        userId: payload.userId,
+        userId: payload.userId || payload.id,
         role: payload.role,
+        twoFactorVerified: payload.twoFactorVerified,
         rawPayload: payload
       });
       
+      // Get actual userId from either userId or id field (depending on token format)
+      const userId = payload.userId || payload.id;
+      
       // Create response with session user info
       const response = NextResponse.next();
-      response.headers.set('X-User-Id', payload.userId);
-      response.headers.set('X-User-Role', payload.role);
+      
+      if (userId) {
+        response.headers.set('X-User-Id', userId);
+      }
+      
+      if (payload.role) {
+        response.headers.set('X-User-Role', payload.role);
+      }
+      
+      // Add 2FA verification status to headers
+      if (payload.twoFactorVerified) {
+        response.headers.set('X-2FA-Verified', 'true');
+      }
+      
+      // For /api/me/* and /settings routes, check if 2FA verification is needed
+      const requires2FA = request.nextUrl.pathname.startsWith('/api/me/') || 
+                         request.nextUrl.pathname.startsWith('/settings');
+      
+      // If this is a route that requires 2FA and user has 2FA enabled but not verified
+      // redirect to login page to complete 2FA
+      if (requires2FA && payload.twoFactorVerified === false) {
+        console.debug('[Middleware] User requires 2FA verification for this route');
+        const loginUrl = new URL('/auth/login', request.url);
+        loginUrl.searchParams.set('returnUrl', request.nextUrl.pathname);
+        loginUrl.searchParams.set('require2fa', 'true');
+        return NextResponse.redirect(loginUrl);
+      }
+      
       return response;
       
     } catch (error) {

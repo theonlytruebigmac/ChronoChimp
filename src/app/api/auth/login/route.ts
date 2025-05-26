@@ -73,7 +73,8 @@ export async function POST(request: Request) {
       userId: user.id,
       name: user.name,
       email: user.email,
-      role: user.role // Ensure role is properly formatted (should be "Admin" not "admin")
+      role: user.role, // Ensure role is properly formatted (should be "Admin" not "admin")
+      twoFactorVerified: user.isTwoFactorEnabled ? false : true // Set to true if 2FA not enabled, false if needs verification
     })
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()

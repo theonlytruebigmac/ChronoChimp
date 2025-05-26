@@ -2,8 +2,8 @@ services:
   # Development Environment
   dev:
     container_name: chronochimp_dev
-    image: node:20-alpine
-    command: sh -c "apk add --no-cache bash sqlite sqlite-dev && npm install && npm run dev"
+    image: node:24-bookworm # Use a slim version to reduce image size
+    command: sh -c "apt-get update && apt-get install -y --no-install-recommends bash python3 make g++ sqlite3 libsqlite3-dev && npm install && npm rebuild better-sqlite3 --build-from-source=better-sqlite3 && npm run dev"
     working_dir: /app
     volumes:
       - .:/app
@@ -39,4 +39,3 @@ volumes:
 networks:
   t3_proxy:
     external: true
-      

@@ -506,6 +506,71 @@ components:
         message:
           type: string
           example: "Operation successful."
+    CsvImportResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        count:
+          type: integer
+          example: 5
+        error:
+          type: string
+          nullable: true
+          example: 'CSV parse error: Invalid format.'
+    CsvTask:
+      type: object
+      properties:
+        title:
+          type: string
+          example: 'My Task'
+        description:
+          type: string
+          nullable: true
+          example: 'Optional description.'
+        status:
+          type: string
+          enum: [Backlog, In Progress, Review, Done]
+          example: 'In Progress'
+        priority:
+          type: string
+          enum: [low, medium, high]
+          nullable: true
+          example: 'high'
+        notes:
+          type: string
+          nullable: true
+          example: 'Remember to check the branding guidelines.'
+        startDate:
+          type: string
+          format: date-time
+          nullable: true
+          example: '2025-05-01T09:00:00Z'
+        dueDate:
+          type: string
+          format: date-time
+          nullable: true
+          example: '2025-06-01T12:00:00Z'
+        tags:
+          type: array
+          items:
+            type: string
+          nullable: true
+          example: ['design', 'frontend', 'urgent']
+        subtasks:
+          type: array
+          items:
+            type: object
+            properties:
+              title:
+                type: string
+                example: 'Create wireframes'
+              completed:
+                type: boolean
+                example: false
+          nullable: true
+          example: [{"title": "Create wireframes", "completed": false}, {"title": "Review with team", "completed": false}]
 
   securitySchemes:
     bearerAuth: # Can be used to denote JWT authentication
@@ -1461,4 +1526,55 @@ paths:
                   error:
                     type: string
                     example: "This email address is already registered."
-  # End of API paths
+  /tasks/import:
+    post:
+      summary: Import tasks from a CSV file
+      tags: [Tasks]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: |
+                    CSV file containing tasks. Supported columns: title, description, status, priority, notes, startDate, dueDate, tags, subtasks.
+                    - tags: Comma-separated list (e.g. "design,frontend,urgent")
+                    - subtasks: JSON array or comma-separated subtask titles (advanced: [{"title":"Subtask 1","completed":false}])
+                  example: |
+                    title,description,status,priority,notes,startDate,dueDate,tags,subtasks
+                    "Design homepage","Create a modern homepage.","In Progress","high","Check branding.","2025-05-01T09:00:00Z","2025-06-01T12:00:00Z","design,frontend,urgent","[{\"title\":\"Wireframe\",\"completed\":false}]"
+      responses:
+        '200':
+          description: Tasks imported successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CsvImportResult'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /tasks/export:
+    get:
+      summary: Export all tasks as a CSV file
+      tags: [Tasks]
+      description: |
+        Exports all tasks for the authenticated user as a CSV file. The CSV includes all major fields: title, description, status, priority, notes, startDate, dueDate, tags, subtasks.
+      responses:
+        '200':
+          description: CSV file containing all tasks
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'

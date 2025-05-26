@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState } from 'react';
@@ -12,6 +11,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchTasks, createTask, updateTask, deleteTask as deleteTaskApi } from '@/lib/api/tasks';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ImportTasksCsv } from '@/components/tasks/ImportTasksCsv';
+import { ExportTasksCsv } from '@/components/tasks/ExportTasksCsv';
 
 
 export default function TasksPage() {
@@ -146,10 +147,14 @@ export default function TasksPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">My Tasks</h1>
-        <Button onClick={() => setIsNewTaskDialogOpen(true)} disabled={createTaskMutation.isPending}>
-          <PlusCircle className="mr-2 h-4 w-4" /> 
-          {createTaskMutation.isPending ? "Adding..." : "Add New Task"}
-        </Button>
+        <div className="flex gap-2">
+          <ImportTasksCsv onImportSuccess={() => queryClient.invalidateQueries({ queryKey: ['tasks'] })} className="hover:btn-primary" />
+          <ExportTasksCsv tasks={tasks} className="hover:btn-primary" />
+          <Button onClick={() => setIsNewTaskDialogOpen(true)} disabled={createTaskMutation.isPending} variant="outline" className="hover:btn-primary">
+            <PlusCircle className="mr-2 h-4 w-4" />
+            {createTaskMutation.isPending ? "Adding..." : "Add New Task"}
+          </Button>
+        </div>
       </div>
 
       <NewTaskDialog

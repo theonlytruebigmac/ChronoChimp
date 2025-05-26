@@ -99,8 +99,8 @@
 
 .swagger-ui .parameters-col_name,
 .swagger-ui .parameters-col_description,
-.swagger-ui .response-col_status,
 .swagger-ui .response-col_description {
+  background-color: hsl(var(--muted));
   color: hsl(var(--foreground));
   font-family: var(--font-inter), sans-serif;
 }
@@ -160,7 +160,7 @@
 .swagger-ui .opblock .opblock-section-header {
   color: hsl(var(--foreground));
   font-family: var(--font-inter), sans-serif;
-  background-color: hsl(var(--card));
+  background-color: hsl(var(--background));
 }
 
 .swagger-ui .opblock .opblock-section-header h4,
@@ -181,6 +181,8 @@
 
 .swagger-ui .response-col_status {
   font-family: var(--font-inter), sans-serif;
+  color : hsl(var(--foreground));
+  background-color: hsl(var(--muted));
 }
 
 /* Tags and navigation */
@@ -255,26 +257,21 @@
   padding: 0;
 }
 
-.swagger-ui .tab li button {
-  padding: 8px 16px;
-  color: hsl(var(--foreground));
+.swagger-ui .tab li button.tablinks {
+  color : hsl(var(--foreground));
   background-color: hsl(var(--muted));
 }
 
-[data-theme="dark"] .swagger-ui .tab li button.tablinks {
-  color: #ffffff
+.swagger-ui .json-schema-2020-12-property .json-schema-2020-12__title {
+  color : hsl(var(--foreground));
+  background-color: hsl(var(--muted));}
+
+.swagger-ui .json-schema-2020-12-json-viewer__name--secondary {
+  color: hsl(var(--foreground));
 }
 
-[data-theme="dark"] .swagger-ui .json-schema-2020-12-property .json-schema-2020-12__title {
-  color: #ffffff
-}
-
-[data-theme="dark"] .swagger-ui .json-schema-2020-12-json-viewer__name--secondary {
-  color: #ffffff
-}
-
-[data-theme="dark"] .swagger-ui .json-schema-2020-12-json-viewer__value--secondary {
-  color: #ffffff
+.swagger-ui .json-schema-2020-12-json-viewer__value--secondary {
+  color: hsl(var(--foreground));
 }
 
 [data-theme="dark"] .swagger-ui .json-schema-2020-12__attribute--primary {
@@ -325,6 +322,7 @@
 [data-theme="dark"] .swagger-ui .wrapper,
 [data-theme="dark"] .swagger-ui .scheme-container,
 [data-theme="dark"] .swagger-ui .opblock,
+[data-theme="dark"] .swagger-ui .response-col_links,
 [data-theme="dark"] .swagger-ui section.models .model-container,
 [data-theme="dark"] .swagger-ui .responses-inner {
   background-color: hsl(var(--card)) !important;
@@ -335,6 +333,10 @@
   background-color: hsl(var(--card)) !important;
   border-bottom-color: hsl(var(--border)) !important;
 }
+
+.swagger-ui .response-col_links {
+  background-color: hsl(var(--muted)) !important;
+  color: hsl(var(--foreground)) !important;}
 
 [data-theme="dark"] .swagger-ui .opblock-tag:hover {
   background-color: hsl(var(--muted)) !important;
@@ -371,14 +373,9 @@
   color: hsl(var(--foreground)) !important;
 }
 
-/* Dark mode tab controls */
-[data-theme="dark"] .swagger-ui .tab li button {
-  background-color: hsl(var(--muted));
-  color: hsl(var(--foreground));
-}
 
 [data-theme="dark"] .swagger-ui .tab li.active button {
-  background-color: hsl(var(--primary));
+  background-color: hsl(var(--foreground));
   color: hsl(var(--primary-foreground));
 }
 

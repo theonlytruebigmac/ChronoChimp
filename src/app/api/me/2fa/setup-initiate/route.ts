@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { authenticator } from 'otplib';
 import { db } from '@/lib/db';
 import { getAuthUserId } from '@/lib/auth';
+import { generate2FASecret } from '@/lib/2fa-utils';
 
 // This endpoint needs Node.js runtime for database access
 export const runtime = 'nodejs';
@@ -47,9 +47,7 @@ export async function POST(request: NextRequest) {
 
   try {
     // Generate a new secret for 2FA
-    const secret = authenticator.generateSecret(); // Generates a new Base32 secret
-    const appName = "ChronoChimp"; // Updated app name
-    const otpAuthUrl = authenticator.keyuri(userEmail, appName, secret);
+    const { secret, encryptedSecret, otpAuthUrl } = generate2FASecret(userEmail);
 
     // IMPORTANT: In a real app, you would temporarily store this secret (e.g., in cache or DB associated with user)
     // and mark it as "unverified" until the user successfully verifies with an OTP.
@@ -59,6 +57,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       secret: secret, // For manual entry by user
+      encryptedSecret: encryptedSecret, // This will be stored in the database
       otpAuthUrl: otpAuthUrl, // For QR code generation on client
     });
 
